@@ -22,7 +22,7 @@ import com.badlogic.gdx.utils.ScreenUtils;
 
 import java.io.IOException;
 
-import si.um.feri.maprri.raster.utils.Constants;
+import si.um.feri.maprri.raster.config.Config;
 import si.um.feri.maprri.raster.utils.Geolocation;
 import si.um.feri.maprri.raster.utils.MapRasterTiles;
 import si.um.feri.maprri.raster.utils.ZoomXY;
@@ -50,10 +50,10 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         shapeRenderer = new ShapeRenderer();
 
         camera = new OrthographicCamera();
-        camera.setToOrtho(false, Constants.MAP_WIDTH, Constants.MAP_HEIGHT);
-        camera.position.set(Constants.MAP_WIDTH / 2f, Constants.MAP_HEIGHT / 2f, 0);
-        camera.viewportWidth = Constants.MAP_WIDTH / 2f;
-        camera.viewportHeight = Constants.MAP_HEIGHT / 2f;
+        camera.setToOrtho(false, Config.MAP_WIDTH, Config.MAP_HEIGHT);
+        camera.position.set(Config.MAP_WIDTH / 2f, Config.MAP_HEIGHT / 2f, 0);
+        camera.viewportWidth = Config.MAP_WIDTH / 2f;
+        camera.viewportHeight = Config.MAP_HEIGHT / 2f;
         camera.zoom = 2f;
         camera.update();
 
@@ -61,10 +61,10 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
 
         try {
             //in most cases, geolocation won't be in the center of the tile because tile borders are predetermined (geolocation can be at the corner of a tile)
-            ZoomXY centerTile = MapRasterTiles.getTileNumber(CENTER_GEOLOCATION.lat, CENTER_GEOLOCATION.lng, Constants.ZOOM);
-            mapTiles = MapRasterTiles.getRasterTileZone(centerTile, Constants.NUM_TILES);
+            ZoomXY centerTile = MapRasterTiles.getTileNumber(CENTER_GEOLOCATION.lat, CENTER_GEOLOCATION.lng, Config.ZOOM);
+            mapTiles = MapRasterTiles.getRasterTileZone(centerTile, Config.NUM_TILES);
             //you need the beginning tile (tile on the top left corner) to convert geolocation to a location in pixels.
-            beginTile = new ZoomXY(Constants.ZOOM, centerTile.x - ((Constants.NUM_TILES - 1) / 2), centerTile.y - ((Constants.NUM_TILES - 1) / 2));
+            beginTile = new ZoomXY(Config.ZOOM, centerTile.x - ((Config.NUM_TILES - 1) / 2), centerTile.y - ((Config.NUM_TILES - 1) / 2));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -72,10 +72,10 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         tiledMap = new TiledMap();
         MapLayers layers = tiledMap.getLayers();
 
-        TiledMapTileLayer layer = new TiledMapTileLayer(Constants.NUM_TILES, Constants.NUM_TILES, MapRasterTiles.TILE_SIZE, MapRasterTiles.TILE_SIZE);
+        TiledMapTileLayer layer = new TiledMapTileLayer(Config.NUM_TILES, Config.NUM_TILES, MapRasterTiles.TILE_SIZE, MapRasterTiles.TILE_SIZE);
         int index = 0;
-        for (int j = Constants.NUM_TILES - 1; j >= 0; j--) {
-            for (int i = 0; i < Constants.NUM_TILES; i++) {
+        for (int j = Config.NUM_TILES - 1; j >= 0; j--) {
+            for (int i = 0; i < Config.NUM_TILES; i++) {
                 TiledMapTileLayer.Cell cell = new TiledMapTileLayer.Cell();
                 cell.setTile(new StaticTiledMapTile(new TextureRegion(mapTiles[index], MapRasterTiles.TILE_SIZE, MapRasterTiles.TILE_SIZE)));
                 layer.setCell(i, j, cell);
@@ -193,7 +193,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         float effectiveViewportWidth = camera.viewportWidth * camera.zoom;
         float effectiveViewportHeight = camera.viewportHeight * camera.zoom;
 
-        camera.position.x = MathUtils.clamp(camera.position.x, effectiveViewportWidth / 2f, Constants.MAP_WIDTH - effectiveViewportWidth / 2f);
-        camera.position.y = MathUtils.clamp(camera.position.y, effectiveViewportHeight / 2f, Constants.MAP_HEIGHT - effectiveViewportHeight / 2f);
+        camera.position.x = MathUtils.clamp(camera.position.x, effectiveViewportWidth / 2f, Config.MAP_WIDTH - effectiveViewportWidth / 2f);
+        camera.position.y = MathUtils.clamp(camera.position.y, effectiveViewportHeight / 2f, Config.MAP_HEIGHT - effectiveViewportHeight / 2f);
     }
 }

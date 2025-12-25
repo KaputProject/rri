@@ -1,10 +1,10 @@
-package si.um.feri.maprri.raster.utils;
+package si.um.feri.maprri.raster.config;
 
 import com.badlogic.gdx.Gdx;
 
 import si.um.feri.maprri.raster.utils.MapRasterTiles;
 
-public class Constants {
+public class Config {
     public static final int NUM_TILES = 3;
     public static final int ZOOM = 15;
     public static final int MAP_WIDTH = MapRasterTiles.TILE_SIZE * NUM_TILES;
