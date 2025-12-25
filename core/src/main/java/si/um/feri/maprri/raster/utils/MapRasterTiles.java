@@ -159,6 +159,20 @@ public class MapRasterTiles {
         return new si.um.feri.maprri.raster.utils.ZoomXY(zoom, xtile, ytile);
     }
 
+    public static si.um.feri.maprri.raster.utils.ZoomXY getTileNumber(si.um.feri.maprri.raster.utils.Geolocation location, final int zoom) {
+        int xtile = (int) Math.floor((location.lng + 180) / 360 * (1 << zoom));
+        int ytile = (int) Math.floor((1 - Math.log(Math.tan(Math.toRadians(location.lat)) + 1 / Math.cos(Math.toRadians(location.lat))) / Math.PI) / 2 * (1 << zoom));
+        if (xtile < 0)
+            xtile = 0;
+        if (xtile >= (1 << zoom))
+            xtile = ((1 << zoom) - 1);
+        if (ytile < 0)
+            ytile = 0;
+        if (ytile >= (1 << zoom))
+            ytile = ((1 << zoom) - 1);
+        return new si.um.feri.maprri.raster.utils.ZoomXY(zoom, xtile, ytile);
+    }
+
     //https://www.maptiler.com/google-maps-coordinates-tile-bounds-projection/#15/15.63/46.56
     //https://gis.stackexchange.com/questions/17278/calculate-lat-lon-bounds-for-individual-tile-generated-from-gdal2tiles
     public static double tile2long(int tileNumberX, int zoom) {
@@ -218,6 +232,37 @@ public class MapRasterTiles {
                 (int) (Math.floor(worldCoordinate[0] * scale) - (beginTileX * MapRasterTiles.TILE_SIZE)),
                 Config.MAP_HEIGHT - (int) (Math.floor(worldCoordinate[1] * scale) - (beginTileY * MapRasterTiles.TILE_SIZE) - 1)
         );
+    }
+
+    public static Geolocation getGeolocationFromPixel(
+        int tileX, int tileY, int pixelOffsetX, int pixelOffsetY, int zoom
+    ) {
+        int tileSize = TILE_SIZE;
+        double n = Math.pow(2, zoom);
+
+        double x = (tileX * tileSize + pixelOffsetX) / (n * tileSize);
+        double y = (tileY * tileSize + pixelOffsetY) / (n * tileSize);
+
+        double lon = x * 360.0 - 180.0;
+        double latRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * y)));
+        double lat = Math.toDegrees(latRad);
+
+        return new Geolocation(lat, lon);
+    }
+
+
+    public static Vector2 worldToLatLng(double pixelX, double pixelY, int zoom, int tileSize) {
+        float scale = (float) (Math.pow(2, zoom) * tileSize);
+
+        float x = (float) (pixelX / scale);
+        float y = (float) (pixelY / scale);
+
+        float lon = x * 360.0f - 180.0f;
+
+        float n = (float) (Math.PI - 2.0f * Math.PI * y);
+        float lat = (float) Math.toDegrees(Math.atan(Math.sinh(n)));
+
+        return new Vector2(lat, lon);
     }
 
     public static si.um.feri.maprri.raster.utils.Geolocation[][] fetchPath(si.um.feri.maprri.raster.utils.Geolocation[] geolocations){

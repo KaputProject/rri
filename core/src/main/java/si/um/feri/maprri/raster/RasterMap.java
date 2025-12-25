@@ -41,6 +41,8 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
 
     private Texture[] mapTiles;
     private ZoomXY beginTile;
+    private ZoomXY currentCenterTile;
+
     private Model mapModel;
     private ModelInstance mapInstance;
 
@@ -51,6 +53,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
 
     private final Geolocation CENTER_GEOLOCATION = new Geolocation(46.557314, 15.637771);
     private final Geolocation MARKER_GEOLOCATION = new Geolocation(46.559070, 15.638100);
+    private Geolocation currentLocation;
 
     @Override
     public void create() {
@@ -58,6 +61,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
             ZoomXY centerTile = MapRasterTiles.getTileNumber(CENTER_GEOLOCATION.lat, CENTER_GEOLOCATION.lng, Config.ZOOM);
             mapTiles = MapRasterTiles.getRasterTileZone(centerTile, Config.NUM_TILES);
             beginTile = new ZoomXY(Config.ZOOM, centerTile.x - ((Config.NUM_TILES - 1) / 2), centerTile.y - ((Config.NUM_TILES - 1) / 2));
+            currentCenterTile = new ZoomXY(centerTile.zoom, centerTile.x, centerTile.y);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -109,9 +113,17 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         float deltaTime = Gdx.graphics.getDeltaTime();
 
         handleInput(deltaTime);
+        update(deltaTime);
+        draw();
+    }
 
+    private void update(float delta) {
         updateCamera();
+        updateLocation();
+        updateLoadedTilesIfNeeded();
+    }
 
+    private void draw() {
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
 
         modelBatch.begin(perspectiveCamera);
@@ -125,6 +137,45 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         perspectiveCamera.far = 8000f;
         perspectiveCamera.setPositionAndDirection(cameraPosition.x, cameraPosition.y, cameraPosition.z, cameraYaw, cameraPitch);
         perspectiveCamera.update();
+    }
+
+    private void updateLoadedTilesIfNeeded() {
+        ZoomXY centerTile = MapRasterTiles.getTileNumber(currentLocation.lat, currentLocation.lng, Config.ZOOM);
+        if (centerTile.x == currentCenterTile.x && centerTile.y == currentCenterTile.y) {
+            return;
+        }
+
+        try {
+            mapTiles = MapRasterTiles.getRasterTileZone(centerTile, Config.NUM_TILES);
+            beginTile = new ZoomXY(Config.ZOOM, centerTile.x - ((Config.NUM_TILES - 1) / 2), centerTile.y - ((Config.NUM_TILES - 1) / 2));
+            currentCenterTile = new ZoomXY(centerTile.zoom, centerTile.x, centerTile.y);
+
+            Texture mapTexture = mergeMapTiles(mapTiles, Config.NUM_TILES, MapRasterTiles.TILE_SIZE);
+            mapInstance.materials.get(0).set(TextureAttribute.createDiffuse(mapTexture));
+
+            int mapWidth = Config.NUM_TILES * MapRasterTiles.TILE_SIZE;
+            int mapHeight = Config.NUM_TILES * MapRasterTiles.TILE_SIZE;
+            cameraPosition.set(mapWidth / 2f, mapHeight / 2f, cameraPosition.z);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void updateLocation() {
+        int mapHeight = Config.NUM_TILES * MapRasterTiles.TILE_SIZE;
+        int mapPixelX = (int) cameraPosition.x;
+        int mapPixelY = mapHeight - (int) cameraPosition.y;
+
+        int tileX = beginTile.x + (mapPixelX / MapRasterTiles.TILE_SIZE);
+        int tileY = beginTile.y + (mapPixelY / MapRasterTiles.TILE_SIZE);
+
+        currentLocation = MapRasterTiles.getGeolocationFromPixel(
+            tileX, tileY,
+            mapPixelX % MapRasterTiles.TILE_SIZE,
+            mapPixelY % MapRasterTiles.TILE_SIZE,
+            Config.ZOOM
+        );
     }
 
     @Override
