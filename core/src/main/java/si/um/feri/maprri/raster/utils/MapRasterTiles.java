@@ -15,7 +15,8 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-import si.um.feri.maprri.raster.utils.ZoomXY;
+import si.um.feri.maprri.raster.config.Config;
+import si.um.feri.maprri.raster.config.Keys;
 
 public class MapRasterTiles {
     //Mapbox
@@ -28,7 +29,7 @@ public class MapRasterTiles {
     //Geoapify
     //https://www.geoapify.com/get-started-with-maps-api
 //    static String mapServiceUrl = "https://maps.geoapify.com/v1/tile/";
-//    static String token = "?&apiKey=" + si.um.feri.maprri.raster.utils.Keys.GEOAPIFY;
+//    static String token = "?&apiKey=" + si.um.feri.maprri.raster.config.Keys.GEOAPIFY;
 //    static String tilesetId = "klokantech-basic";
 //    static String format = "@2x.png";
 
@@ -210,12 +211,12 @@ public class MapRasterTiles {
     public static Vector2 getPixelPosition(double lat, double lng, int beginTileX, int beginTileY) {
         double[] worldCoordinate = project(lat, lng, MapRasterTiles.TILE_SIZE);
         // Scale to fit our image
-        double scale = Math.pow(2, si.um.feri.maprri.raster.utils.Constants.ZOOM);
+        double scale = Math.pow(2, Config.ZOOM);
 
         // Apply scale to world coordinates to get image coordinates
         return new Vector2(
                 (int) (Math.floor(worldCoordinate[0] * scale) - (beginTileX * MapRasterTiles.TILE_SIZE)),
-                si.um.feri.maprri.raster.utils.Constants.MAP_HEIGHT - (int) (Math.floor(worldCoordinate[1] * scale) - (beginTileY * MapRasterTiles.TILE_SIZE) - 1)
+                Config.MAP_HEIGHT - (int) (Math.floor(worldCoordinate[1] * scale) - (beginTileY * MapRasterTiles.TILE_SIZE) - 1)
         );
     }
 
@@ -251,7 +252,7 @@ public class MapRasterTiles {
 
         // Construct the URL
         String urlString = "https://api.geoapify.com/v1/routing?waypoints=" + coordinatesPath.toString() +
-                "&mode=" + "drive" + "&apiKey=" + si.um.feri.maprri.raster.utils.Keys.GEOAPIFY;
+                "&mode=" + "drive" + "&apiKey=" + Keys.GEOAPIFY;
 
         // Open connection
         URL url = new URL(urlString);
@@ -302,5 +303,23 @@ public class MapRasterTiles {
         } else {
             return null;
         }
+    }
+
+    /**
+     * Merges all the needed tiles into a single texture, which is then used as a single large plane in 3D space
+     */
+    public static Texture mergeMapTiles(Texture[] mapTiles, int numTiles, int tileSize) {
+        Pixmap merged = new Pixmap(numTiles * tileSize, numTiles * tileSize, Pixmap.Format.RGBA8888);
+        for (int y = 0; y < numTiles; y++) {
+            for (int x = 0; x < numTiles; x++) {
+                Texture tile = mapTiles[y * numTiles + x];
+                Pixmap tilePixmap = tile.getTextureData().consumePixmap();
+                merged.drawPixmap(tilePixmap, x * tileSize, y * tileSize);
+                tilePixmap.dispose();
+            }
+        }
+        Texture texture = new Texture(merged);
+        merged.dispose();
+        return texture;
     }
 }
