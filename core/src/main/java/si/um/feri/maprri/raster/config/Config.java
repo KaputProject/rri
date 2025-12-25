@@ -13,8 +13,10 @@ public class Config {
     public static final int HUD_WIDTH = Gdx.graphics.getWidth();
     public static final int HUD_HEIGHT = Gdx.graphics.getHeight();
 
-    public static final float PERSPECTIVE_CAMERA_INITIAL_Z = 300f;
-    public static final float PERSPECTIVE_CAMERA_NEAR = 1f;
-    public static final float PERSPECTIVE_CAMERA_FAR = 1500f;
-    public static final float CAMERA_MOVEMENT_SPEED = 3f;
+    public static final float CAMERA_MOUSE_PITCH_SPEED = 0.1f;
+    public static final float MIN_PITCH = 1f;
+    public static final float MAX_PITCH = 90f;
+    public static final float CAMERA_SPEED = 500f;
+    public static final float CAMERA_Z_SPEED = 15f;
+    public static final float CAMERA_PITCH_SPEED = 30f;
 }

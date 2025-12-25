@@ -3,66 +3,68 @@ package si.um.feri.maprri.raster;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.OrthographicCamera;
-import com.badlogic.gdx.graphics.PerspectiveCamera;
+import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.VertexAttributes;
-import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.g3d.Environment;
 import com.badlogic.gdx.graphics.g3d.Material;
 import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.ModelBatch;
 import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
+import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.input.GestureDetector;
-import com.badlogic.gdx.maps.MapLayers;
-import com.badlogic.gdx.maps.tiled.TiledMap;
-import com.badlogic.gdx.maps.tiled.TiledMapRenderer;
-import com.badlogic.gdx.maps.tiled.TiledMapTileLayer;
-import com.badlogic.gdx.maps.tiled.renderers.OrthogonalTiledMapRenderer;
-import com.badlogic.gdx.maps.tiled.tiles.StaticTiledMapTile;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
-import com.badlogic.gdx.utils.ScreenUtils;
-
-import java.io.IOException;
 
 import si.um.feri.maprri.raster.config.Config;
 import si.um.feri.maprri.raster.utils.Geolocation;
 import si.um.feri.maprri.raster.utils.MapRasterTiles;
 import si.um.feri.maprri.raster.utils.ZoomXY;
 
+import java.io.IOException;
+
 public class RasterMap extends ApplicationAdapter implements GestureDetector.GestureListener {
-    private Vector3 touchPosition;
-
-    private TiledMap tiledMap;
-    private TiledMapRenderer tiledMapRenderer;
-    private OrthographicCamera camera;
-
     private ModelBatch modelBatch;
-    private PerspectiveCamera perspectiveCamera;
+    private PerspectiveCamera3D perspectiveCamera;
     private ModelInstance markerInstance;
     private Model markerModel;
     private Environment environment;
 
     private Texture[] mapTiles;
     private ZoomXY beginTile;
+    private Model mapModel;
+    private ModelInstance mapInstance;
+
+    private Vector3 cameraPosition = new Vector3();
+    private float cameraPitch = 0f;
+    private float cameraDistance = 800f;
 
     private final Geolocation CENTER_GEOLOCATION = new Geolocation(46.557314, 15.637771);
     private final Geolocation MARKER_GEOLOCATION = new Geolocation(46.559070, 15.638100);
 
+    private static class PerspectiveCamera3D extends com.badlogic.gdx.graphics.PerspectiveCamera {
+        public PerspectiveCamera3D(float fov, float width, float height) {
+            super(fov, width, height);
+        }
+        public void setPositionAndLook(float x, float y, float z, float pitch) {
+            float pitchRad = MathUtils.degreesToRadians * pitch;
+            Vector3 camOffset = new Vector3(0, (float)(Math.sin(pitchRad)), (float)(-Math.cos(pitchRad)));
+            this.position.set(x, y, z);
+            Vector3 lookAt = new Vector3(x, y, z).add(camOffset);
+            this.lookAt(lookAt);
+            this.up.set(0, 1, 0);
+            this.update();
+        }
+    }
+
     @Override
     public void create() {
-        camera = new OrthographicCamera(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-        camera.position.set(Config.MAP_WIDTH / 2f, Config.MAP_HEIGHT / 2f, 0);
-        camera.zoom = Config.INITIAL_ZOOM;
-        camera.update();
-
         try {
             ZoomXY centerTile = MapRasterTiles.getTileNumber(CENTER_GEOLOCATION.lat, CENTER_GEOLOCATION.lng, Config.ZOOM);
             mapTiles = MapRasterTiles.getRasterTileZone(centerTile, Config.NUM_TILES);
@@ -71,75 +73,84 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
             e.printStackTrace();
         }
 
-        tiledMap = new TiledMap();
-        MapLayers layers = tiledMap.getLayers();
-        TiledMapTileLayer layer = new TiledMapTileLayer(Config.NUM_TILES, Config.NUM_TILES, MapRasterTiles.TILE_SIZE, MapRasterTiles.TILE_SIZE);
-        int index = 0;
-        for (int j = Config.NUM_TILES - 1; j >= 0; j--) {
-            for (int i = 0; i < Config.NUM_TILES; i++) {
-                TiledMapTileLayer.Cell cell = new TiledMapTileLayer.Cell();
-                cell.setTile(new StaticTiledMapTile(new TextureRegion(mapTiles[index], MapRasterTiles.TILE_SIZE, MapRasterTiles.TILE_SIZE)));
-                layer.setCell(i, j, cell);
-                index++;
-            }
-        }
-        layers.add(layer);
-        tiledMapRenderer = new OrthogonalTiledMapRenderer(tiledMap);
-
-        modelBatch = new ModelBatch();
+        int mapWidth = Config.NUM_TILES * MapRasterTiles.TILE_SIZE;
+        int mapHeight = Config.NUM_TILES * MapRasterTiles.TILE_SIZE;
+        Texture mapTexture = mergeMapTiles(mapTiles, Config.NUM_TILES, MapRasterTiles.TILE_SIZE);
 
         environment = new Environment();
-        environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.4f, 0.4f, 0.4f, 1f));
-        environment.add(new DirectionalLight().set(0.8f, 0.8f, 0.8f, -1f, -0.8f, -0.2f));
+        environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.65f, 0.65f, 0.65f, 1f));
+        environment.add(new DirectionalLight().set(0.8f, 0.8f, 0.8f, -0.5f, -1f, -0.3f));
 
+        modelBatch = new ModelBatch();
         ModelBuilder modelBuilder = new ModelBuilder();
-        markerModel = modelBuilder.createBox(20f, 20f, 20f, new Material(ColorAttribute.createDiffuse(com.badlogic.gdx.graphics.Color.RED)), VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal);
+        mapModel = modelBuilder.createRect(
+            0, 0, 0,
+            mapWidth, 0, 0,
+            mapWidth, mapHeight, 0,
+            0, mapHeight, 0,
+            0, 0, 1,
+            new Material(
+                ColorAttribute.createDiffuse(Color.WHITE),
+                TextureAttribute.createDiffuse(mapTexture)
+            ),
+            VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal | VertexAttributes.Usage.TextureCoordinates
+        );
+        mapInstance = new ModelInstance(mapModel);
 
+        markerModel = modelBuilder.createBox(20f, 20f, 40f, new Material(ColorAttribute.createDiffuse(Color.RED)), VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal);
         markerInstance = new ModelInstance(markerModel);
-
         Vector2 markerPos2D = MapRasterTiles.getPixelPosition(MARKER_GEOLOCATION.lat, MARKER_GEOLOCATION.lng, beginTile.x, beginTile.y);
-        markerInstance.transform.setTranslation(markerPos2D.x, markerPos2D.y, 10f);
+        markerInstance.transform.setTranslation(markerPos2D.x, markerPos2D.y, 20f);
 
-        perspectiveCamera = new PerspectiveCamera(67, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-        perspectiveCamera.position.set(Config.MAP_WIDTH / 2f, Config.MAP_HEIGHT / 2f, 600f);
-        perspectiveCamera.lookAt(Config.MAP_WIDTH / 2f, Config.MAP_HEIGHT / 2f, 0);
-        perspectiveCamera.near = 1f;
-        perspectiveCamera.far = 4000f;
-        perspectiveCamera.update();
+        perspectiveCamera = new PerspectiveCamera3D(67, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        cameraDistance = mapHeight * 1.1f;
 
-        this.touchPosition = new Vector3();
+        cameraPosition.set(mapWidth / 2f, mapHeight / 2f, cameraDistance);
+
+        updateCamera();
         Gdx.input.setInputProcessor(new GestureDetector(this));
+    }
+
+    public static Texture mergeMapTiles(Texture[] mapTiles, int numTiles, int tileSize) {
+        Pixmap merged = new Pixmap(numTiles * tileSize, numTiles * tileSize, Pixmap.Format.RGBA8888);
+        for (int y = 0; y < numTiles; y++) {
+            for (int x = 0; x < numTiles; x++) {
+                Texture tile = mapTiles[y * numTiles + x];
+                Pixmap tilePixmap = tile.getTextureData().consumePixmap();
+                merged.drawPixmap(tilePixmap, x * tileSize, y * tileSize);
+                tilePixmap.dispose();
+            }
+        }
+        Texture texture = new Texture(merged);
+        merged.dispose();
+        return texture;
     }
 
     @Override
     public void render() {
-        handleInput();
-        camera.update();
+        float deltaTime = Gdx.graphics.getDeltaTime();
 
-        ScreenUtils.clear(0, 0, 0, 1);
-        tiledMapRenderer.setView(camera);
-        tiledMapRenderer.render();
+        handleInput(deltaTime);
 
-        syncCameras();
+        updateCamera();
 
-        Gdx.gl.glClear(GL20.GL_DEPTH_BUFFER_BIT);
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
 
         modelBatch.begin(perspectiveCamera);
+        modelBatch.render(mapInstance, environment);
         modelBatch.render(markerInstance, environment);
         modelBatch.end();
     }
 
-    private void syncCameras() {
-        perspectiveCamera.position.x = camera.position.x;
-        perspectiveCamera.position.y = camera.position.y;
-        perspectiveCamera.position.z = 600f * camera.zoom;
-        perspectiveCamera.lookAt(camera.position.x, camera.position.y, 0);
+    private void updateCamera() {
+        perspectiveCamera.near = 10f;
+        perspectiveCamera.far = 8000f;
+        perspectiveCamera.setPositionAndLook(cameraPosition.x, cameraPosition.y, cameraPosition.z, cameraPitch);
         perspectiveCamera.update();
     }
 
     @Override
     public void dispose() {
-        tiledMap.dispose();
         modelBatch.dispose();
         markerModel.dispose();
         for (Texture tile : mapTiles) {
@@ -149,8 +160,6 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
 
     @Override
     public boolean touchDown(float x, float y, int pointer, int button) {
-        touchPosition.set(x, y, 0);
-        camera.unproject(touchPosition);
         return false;
     }
 
@@ -171,8 +180,9 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
 
     @Override
     public boolean pan(float x, float y, float deltaX, float deltaY) {
-        camera.translate(-deltaX * camera.zoom, deltaY * camera.zoom);
-        return false;
+        cameraPitch += deltaY * Config.CAMERA_MOUSE_PITCH_SPEED;
+        cameraPitch = MathUtils.clamp(cameraPitch, Config.MIN_PITCH, Config.MAX_PITCH);
+        return true;
     }
 
     @Override
@@ -192,49 +202,44 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
 
     @Override
     public boolean zoom(float initialDistance, float distance) {
-        if (initialDistance >= distance)
-            camera.zoom += 0.04f;
-        else
-            camera.zoom -= 0.04f;
-        return false;
+        cameraPosition.z *= (initialDistance / distance);
+        cameraPosition.z = MathUtils.clamp(cameraPosition.z, 400, 3000);
+        return true;
     }
 
+    private void handleInput(float delta) {
+        int mapWidth = Config.NUM_TILES * MapRasterTiles.TILE_SIZE;
+        int mapHeight = Config.NUM_TILES * MapRasterTiles.TILE_SIZE;
 
-    private void handleInput() {
-        if (Gdx.input.isKeyPressed(Input.Keys.E)) {
-            camera.zoom += 0.02f;
-        }
-        if (Gdx.input.isKeyPressed(Input.Keys.Q)) {
-            camera.zoom -= 0.02f;
-        }
         if (Gdx.input.isKeyPressed(Input.Keys.A)) {
-            camera.translate(-Config.CAMERA_MOVEMENT_SPEED * camera.zoom, 0, 0);
+            cameraPosition.x -= Config.CAMERA_SPEED * delta * ((cameraPosition.z / 800f) + 0.6f);
         }
         if (Gdx.input.isKeyPressed(Input.Keys.D)) {
-            camera.translate(Config.CAMERA_MOVEMENT_SPEED * camera.zoom, 0, 0);
-        }
-        if (Gdx.input.isKeyPressed(Input.Keys.S)) {
-            camera.translate(0, -Config.CAMERA_MOVEMENT_SPEED * camera.zoom, 0);
+            cameraPosition.x += Config.CAMERA_SPEED * delta * ((cameraPosition.z / 800f) + 0.6f);
         }
         if (Gdx.input.isKeyPressed(Input.Keys.W)) {
-            camera.translate(0, Config.CAMERA_MOVEMENT_SPEED * camera.zoom, 0);
+            cameraPosition.y += Config.CAMERA_SPEED * delta * ((cameraPosition.z / 800f) + 0.6f);
         }
-
-        camera.zoom = MathUtils.clamp(camera.zoom, 0.5f, 2f);
-
-        float effectiveViewportWidth = camera.viewportWidth * camera.zoom;
-        float effectiveViewportHeight = camera.viewportHeight * camera.zoom;
-
-        if (effectiveViewportWidth > Config.MAP_WIDTH) {
-            camera.position.x = Config.MAP_WIDTH / 2f;
-        } else {
-            camera.position.x = MathUtils.clamp(camera.position.x, effectiveViewportWidth / 2f, Config.MAP_WIDTH - effectiveViewportWidth / 2f);
+        if (Gdx.input.isKeyPressed(Input.Keys.S)) {
+            cameraPosition.y -= Config.CAMERA_SPEED * delta * ((cameraPosition.z / 800f) + 0.6f);
         }
+        cameraPosition.x = MathUtils.clamp(cameraPosition.x, 0, mapWidth);
+        cameraPosition.y = MathUtils.clamp(cameraPosition.y, 0, mapHeight);
 
-        if (effectiveViewportHeight > Config.MAP_HEIGHT) {
-            camera.position.y = Config.MAP_HEIGHT / 2f;
-        } else {
-            camera.position.y = MathUtils.clamp(camera.position.y, effectiveViewportHeight / 2f, Config.MAP_HEIGHT - effectiveViewportHeight / 2f);
+        if (Gdx.input.isKeyPressed(Input.Keys.E)) {
+            cameraPosition.z += Config.CAMERA_Z_SPEED;
         }
+        if (Gdx.input.isKeyPressed(Input.Keys.Q)) {
+            cameraPosition.z -= Config.CAMERA_Z_SPEED;
+        }
+        cameraPosition.z = MathUtils.clamp(cameraPosition.z, 400, 3000);
+
+        if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
+            cameraPitch += Config.CAMERA_PITCH_SPEED * delta;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
+            cameraPitch -= Config.CAMERA_PITCH_SPEED * delta;
+        }
+        cameraPitch = MathUtils.clamp(cameraPitch, Config.MIN_PITCH, Config.MAX_PITCH);
     }
 }
