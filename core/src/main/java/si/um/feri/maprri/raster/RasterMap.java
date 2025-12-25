@@ -1,5 +1,7 @@
 package si.um.feri.maprri.raster;
 
+import static si.um.feri.maprri.raster.utils.MapRasterTiles.mergeMapTiles;
+
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
@@ -22,6 +24,7 @@ import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
 
+import si.um.feri.maprri.raster.classes.CustomPerspectiveCamera;
 import si.um.feri.maprri.raster.config.Config;
 import si.um.feri.maprri.raster.utils.Geolocation;
 import si.um.feri.maprri.raster.utils.MapRasterTiles;
@@ -31,7 +34,7 @@ import java.io.IOException;
 
 public class RasterMap extends ApplicationAdapter implements GestureDetector.GestureListener {
     private ModelBatch modelBatch;
-    private PerspectiveCamera3D perspectiveCamera;
+    private CustomPerspectiveCamera perspectiveCamera;
     private ModelInstance markerInstance;
     private Model markerModel;
     private Environment environment;
@@ -42,26 +45,12 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
     private ModelInstance mapInstance;
 
     private Vector3 cameraPosition = new Vector3();
-    private float cameraPitch = 0f;
-    private float cameraDistance = 800f;
+    private float cameraPitch = Config.INITIAL_PITCH;
+    private float cameraYaw = 0f;
+    private float cameraDistance = Config.CAMERA_Z_INITIAL;
 
     private final Geolocation CENTER_GEOLOCATION = new Geolocation(46.557314, 15.637771);
     private final Geolocation MARKER_GEOLOCATION = new Geolocation(46.559070, 15.638100);
-
-    private static class PerspectiveCamera3D extends com.badlogic.gdx.graphics.PerspectiveCamera {
-        public PerspectiveCamera3D(float fov, float width, float height) {
-            super(fov, width, height);
-        }
-        public void setPositionAndLook(float x, float y, float z, float pitch) {
-            float pitchRad = MathUtils.degreesToRadians * pitch;
-            Vector3 camOffset = new Vector3(0, (float)(Math.sin(pitchRad)), (float)(-Math.cos(pitchRad)));
-            this.position.set(x, y, z);
-            Vector3 lookAt = new Vector3(x, y, z).add(camOffset);
-            this.lookAt(lookAt);
-            this.up.set(0, 1, 0);
-            this.update();
-        }
-    }
 
     @Override
     public void create() {
@@ -81,6 +70,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.65f, 0.65f, 0.65f, 1f));
         environment.add(new DirectionalLight().set(0.8f, 0.8f, 0.8f, -0.5f, -1f, -0.3f));
 
+        // Here i create the map model as a single large plane with the merged texture
         modelBatch = new ModelBatch();
         ModelBuilder modelBuilder = new ModelBuilder();
         mapModel = modelBuilder.createRect(
@@ -97,33 +87,21 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         );
         mapInstance = new ModelInstance(mapModel);
 
+
+        // Test model display
         markerModel = modelBuilder.createBox(20f, 20f, 40f, new Material(ColorAttribute.createDiffuse(Color.RED)), VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal);
         markerInstance = new ModelInstance(markerModel);
         Vector2 markerPos2D = MapRasterTiles.getPixelPosition(MARKER_GEOLOCATION.lat, MARKER_GEOLOCATION.lng, beginTile.x, beginTile.y);
-        markerInstance.transform.setTranslation(markerPos2D.x, markerPos2D.y, 20f);
+        markerInstance.transform.setTranslation(markerPos2D.x, markerPos2D.y, 0f);
 
-        perspectiveCamera = new PerspectiveCamera3D(67, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-        cameraDistance = mapHeight * 1.1f;
-
+        // Here I make our custom perspective camera that handles movement
+        perspectiveCamera = new CustomPerspectiveCamera(67, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         cameraPosition.set(mapWidth / 2f, mapHeight / 2f, cameraDistance);
 
         updateCamera();
-        Gdx.input.setInputProcessor(new GestureDetector(this));
-    }
 
-    public static Texture mergeMapTiles(Texture[] mapTiles, int numTiles, int tileSize) {
-        Pixmap merged = new Pixmap(numTiles * tileSize, numTiles * tileSize, Pixmap.Format.RGBA8888);
-        for (int y = 0; y < numTiles; y++) {
-            for (int x = 0; x < numTiles; x++) {
-                Texture tile = mapTiles[y * numTiles + x];
-                Pixmap tilePixmap = tile.getTextureData().consumePixmap();
-                merged.drawPixmap(tilePixmap, x * tileSize, y * tileSize);
-                tilePixmap.dispose();
-            }
-        }
-        Texture texture = new Texture(merged);
-        merged.dispose();
-        return texture;
+        // This is here so that the input works
+        Gdx.input.setInputProcessor(new GestureDetector(this));
     }
 
     @Override
@@ -145,7 +123,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
     private void updateCamera() {
         perspectiveCamera.near = 10f;
         perspectiveCamera.far = 8000f;
-        perspectiveCamera.setPositionAndLook(cameraPosition.x, cameraPosition.y, cameraPosition.z, cameraPitch);
+        perspectiveCamera.setPositionAndDirection(cameraPosition.x, cameraPosition.y, cameraPosition.z, cameraYaw, cameraPitch);
         perspectiveCamera.update();
     }
 
@@ -159,46 +137,33 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
     }
 
     @Override
-    public boolean touchDown(float x, float y, int pointer, int button) {
-        return false;
-    }
-
-    @Override
-    public boolean tap(float x, float y, int count, int button) {
-        return false;
-    }
-
-    @Override
-    public boolean longPress(float x, float y) {
-        return false;
-    }
-
-    @Override
-    public boolean fling(float velocityX, float velocityY, int button) {
-        return false;
-    }
-
-    @Override
     public boolean pan(float x, float y, float deltaX, float deltaY) {
-        cameraPitch += deltaY * Config.CAMERA_MOUSE_PITCH_SPEED;
+        cameraPitch -= deltaY * Config.CAMERA_MOUSE_PITCH_SPEED;
         cameraPitch = MathUtils.clamp(cameraPitch, Config.MIN_PITCH, Config.MAX_PITCH);
+        cameraYaw -= deltaX * Config.CAMERA_MOUSE_YAW;
+        cameraYaw = (cameraYaw + 360f) % 360f;
         return true;
     }
 
-    @Override
-    public boolean panStop(float x, float y, int pointer, int button) {
+    @Override public boolean touchDown(float x, float y, int pointer, int button) {
         return false;
     }
-
-    @Override
-    public boolean pinch(Vector2 initialPointer1, Vector2 initialPointer2, Vector2 pointer1, Vector2 pointer2) {
+    @Override public boolean tap(float x, float y, int count, int button) {
         return false;
     }
-
-    @Override
-    public void pinchStop() {
-
+    @Override public boolean longPress(float x, float y) {
+        return false;
     }
+    @Override public boolean fling(float velocityX, float velocityY, int button) {
+        return false;
+    }
+    @Override public boolean panStop(float x, float y, int pointer, int button) {
+        return false;
+    }
+    @Override public boolean pinch(Vector2 initialPointer1, Vector2 initialPointer2, Vector2 pointer1, Vector2 pointer2) {
+        return false;
+    }
+    @Override public void pinchStop() {}
 
     @Override
     public boolean zoom(float initialDistance, float distance) {
@@ -210,30 +175,32 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
     private void handleInput(float delta) {
         int mapWidth = Config.NUM_TILES * MapRasterTiles.TILE_SIZE;
         int mapHeight = Config.NUM_TILES * MapRasterTiles.TILE_SIZE;
+        float moveSpeed = Config.CAMERA_SPEED * delta * (cameraPosition.z / Config.CAMERA_Z_INITIAL);
 
-        if (Gdx.input.isKeyPressed(Input.Keys.A)) {
-            cameraPosition.x -= Config.CAMERA_SPEED * delta * ((cameraPosition.z / 800f) + 0.6f);
-        }
-        if (Gdx.input.isKeyPressed(Input.Keys.D)) {
-            cameraPosition.x += Config.CAMERA_SPEED * delta * ((cameraPosition.z / 800f) + 0.6f);
-        }
-        if (Gdx.input.isKeyPressed(Input.Keys.W)) {
-            cameraPosition.y += Config.CAMERA_SPEED * delta * ((cameraPosition.z / 800f) + 0.6f);
-        }
-        if (Gdx.input.isKeyPressed(Input.Keys.S)) {
-            cameraPosition.y -= Config.CAMERA_SPEED * delta * ((cameraPosition.z / 800f) + 0.6f);
-        }
+        float moveF = 0, moveR = 0;
+        if (Gdx.input.isKeyPressed(Input.Keys.W)) moveF += 1;
+        if (Gdx.input.isKeyPressed(Input.Keys.S)) moveF -= 1;
+        if (Gdx.input.isKeyPressed(Input.Keys.D)) moveR += 1;
+        if (Gdx.input.isKeyPressed(Input.Keys.A)) moveR -= 1;
+
+        // Here we have to calculate how much to move in X and Y depending on camera yaw
+        float yaw = MathUtils.degreesToRadians * cameraYaw;
+        float sinYaw = (float) Math.sin(yaw), cosYaw = (float) Math.cos(yaw);
+
+        cameraPosition.x += (sinYaw * moveF + cosYaw * moveR) * moveSpeed;
+        cameraPosition.y += (cosYaw * moveF - sinYaw * moveR) * moveSpeed;
         cameraPosition.x = MathUtils.clamp(cameraPosition.x, 0, mapWidth);
         cameraPosition.y = MathUtils.clamp(cameraPosition.y, 0, mapHeight);
 
         if (Gdx.input.isKeyPressed(Input.Keys.E)) {
-            cameraPosition.z += Config.CAMERA_Z_SPEED;
+            cameraPosition.z += Config.CAMERA_Z_SPEED * delta;
         }
         if (Gdx.input.isKeyPressed(Input.Keys.Q)) {
-            cameraPosition.z -= Config.CAMERA_Z_SPEED;
+            cameraPosition.z -= Config.CAMERA_Z_SPEED * delta;
         }
-        cameraPosition.z = MathUtils.clamp(cameraPosition.z, 400, 3000);
+        cameraPosition.z = MathUtils.clamp(cameraPosition.z, Config.CAMERA_Z_MIN, Config.CAMERA_Z_MAX);
 
+        // This determines how much the camera pitches up and down
         if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
             cameraPitch += Config.CAMERA_PITCH_SPEED * delta;
         }
@@ -241,5 +208,13 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
             cameraPitch -= Config.CAMERA_PITCH_SPEED * delta;
         }
         cameraPitch = MathUtils.clamp(cameraPitch, Config.MIN_PITCH, Config.MAX_PITCH);
+
+        if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
+            cameraYaw -= Config.CAMERA_PITCH_SPEED * delta;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
+            cameraYaw += Config.CAMERA_PITCH_SPEED * delta;
+        }
+        cameraYaw = (cameraYaw + 360f) % 360f;
     }
 }

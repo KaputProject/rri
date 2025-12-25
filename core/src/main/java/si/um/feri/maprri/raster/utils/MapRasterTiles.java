@@ -304,4 +304,22 @@ public class MapRasterTiles {
             return null;
         }
     }
+
+    /**
+     * Merges all the needed tiles into a single texture, which is then used as a single large plane in 3D space
+     */
+    public static Texture mergeMapTiles(Texture[] mapTiles, int numTiles, int tileSize) {
+        Pixmap merged = new Pixmap(numTiles * tileSize, numTiles * tileSize, Pixmap.Format.RGBA8888);
+        for (int y = 0; y < numTiles; y++) {
+            for (int x = 0; x < numTiles; x++) {
+                Texture tile = mapTiles[y * numTiles + x];
+                Pixmap tilePixmap = tile.getTextureData().consumePixmap();
+                merged.drawPixmap(tilePixmap, x * tileSize, y * tileSize);
+                tilePixmap.dispose();
+            }
+        }
+        Texture texture = new Texture(merged);
+        merged.dispose();
+        return texture;
+    }
 }
