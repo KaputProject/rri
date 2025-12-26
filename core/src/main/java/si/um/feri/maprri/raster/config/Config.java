@@ -5,7 +5,7 @@ import com.badlogic.gdx.Gdx;
 import si.um.feri.maprri.raster.utils.MapRasterTiles;
 
 public class Config {
-    public static final int NUM_TILES = 3;
+    public static final int NUM_TILES = 5;
     public static final int ZOOM = 15;
     public static final float INITIAL_ZOOM = 1f;
     public static final int MAP_WIDTH = MapRasterTiles.TILE_SIZE * NUM_TILES;
