@@ -48,6 +48,7 @@ public class MapRasterTiles {
     public static Texture getRasterTile(int zoom, int x, int y) throws IOException {
         URL url = new URL(mapServiceUrl + tilesetId + "/" + zoom + "/" + x + "/" + y + format + token);
         ByteArrayOutputStream bis = fetchTile(url);
+        System.out.println(zoom + "/" + (x) + "/" + (y));
         return getTexture(bis.toByteArray());
     }
 

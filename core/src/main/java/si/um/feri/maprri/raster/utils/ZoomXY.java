@@ -14,4 +14,22 @@ public class ZoomXY {
     public String toString() {
         return zoom + "/" + x + "/" + y;
     }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null || getClass() != obj.getClass())
+            return false;
+        ZoomXY other = (ZoomXY) obj;
+        return zoom == other.zoom && x == other.x && y == other.y;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = zoom;
+        result = 31 * result + x;
+        result = 31 * result + y;
+        return result;
+    }
 }
