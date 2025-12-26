@@ -277,8 +277,8 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
 
         cameraPosition.x += (sinYaw * moveF + cosYaw * moveR) * moveSpeed;
         cameraPosition.y += (cosYaw * moveF - sinYaw * moveR) * moveSpeed;
-        cameraPosition.x = MathUtils.clamp(cameraPosition.x, 0, mapWidth);
-        cameraPosition.y = MathUtils.clamp(cameraPosition.y, 0, mapHeight);
+//        cameraPosition.x = MathUtils.clamp(cameraPosition.x, 0, mapWidth);
+//        cameraPosition.y = MathUtils.clamp(cameraPosition.y, 0, mapHeight);
 
         if (Gdx.input.isKeyPressed(Input.Keys.E)) {
             cameraPosition.z += Config.CAMERA_Z_SPEED * delta;
