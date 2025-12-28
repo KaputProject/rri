@@ -25,6 +25,7 @@ import si.um.feri.maprri.raster.classes.Tile;
 import si.um.feri.maprri.raster.config.Config;
 import si.um.feri.maprri.raster.utils.Geolocation;
 import si.um.feri.maprri.raster.utils.MapRasterTiles;
+import si.um.feri.maprri.raster.utils.MqttUtil;
 import si.um.feri.maprri.raster.utils.ZoomXY;
 
 import java.io.IOException;
@@ -37,6 +38,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
     private ModelInstance markerInstance;
     private Model markerModel;
     private Environment environment;
+    private MqttUtil mqttUtil;
 
     private Map<ZoomXY, Tile> loadedTiles = new HashMap<>();
     private Map<ZoomXY, ModelInstance> tileInstances = new HashMap<>();
@@ -67,6 +69,8 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
             e.printStackTrace();
         }
 
+        mqttUtil = new MqttUtil();
+
         environment = new Environment();
         environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.65f, 0.65f, 0.65f, 1f));
         environment.add(new DirectionalLight().set(0.8f, 0.8f, 0.8f, -0.5f, -1f, -0.3f));
@@ -90,6 +94,8 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
 
         // This is here so that the input works
         Gdx.input.setInputProcessor(new GestureDetector(this));
+
+        initMqttListeners();
     }
 
     @Override
@@ -304,5 +310,23 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
             cameraYaw += Config.CAMERA_PITCH_SPEED * delta;
         }
         cameraYaw = (cameraYaw + 360f) % 360f;
+    }
+
+    private void initMqttListeners() {
+        try {
+            // TODO: Tuki implementiraj evente oz simulacije iz androida
+            mqttUtil.client.subscribe("kaput/event", (topic, msg) -> {
+                String message = new String(msg.getPayload());
+                System.out.println("Received MQTT message on topic " + topic + ": " + message);
+            });
+
+            mqttUtil.client.subscribe("kaput/simulate", (topic, msg) -> {
+                String message = new String(msg.getPayload());
+                System.out.println("Received MQTT message on topic " + topic + ": " + message);
+            });
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
