@@ -54,6 +54,8 @@ configure(subprojects) {
 
   dependencies {
     implementation 'org.json:json:20240303'
+    implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
+    implementation 'io.github.cdimascio:java-dotenv:5.2.2'
   }
 }
 

@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 
+import si.um.feri.maprri.raster.config.Keys;
+
 public class MainT {
 
     static String mapServiceUrl = "https://maps.geoapify.com/v1/tile/";

@@ -15,7 +15,8 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-import si.um.feri.maprri.raster.utils.ZoomXY;
+import si.um.feri.maprri.raster.config.Config;
+import si.um.feri.maprri.raster.config.Keys;
 
 public class MapRasterTiles {
     //Mapbox
@@ -28,7 +29,7 @@ public class MapRasterTiles {
     //Geoapify
     //https://www.geoapify.com/get-started-with-maps-api
 //    static String mapServiceUrl = "https://maps.geoapify.com/v1/tile/";
-//    static String token = "?&apiKey=" + si.um.feri.maprri.raster.utils.Keys.GEOAPIFY;
+//    static String token = "?&apiKey=" + si.um.feri.maprri.raster.config.Keys.GEOAPIFY;
 //    static String tilesetId = "klokantech-basic";
 //    static String format = "@2x.png";
 
@@ -47,6 +48,7 @@ public class MapRasterTiles {
     public static Texture getRasterTile(int zoom, int x, int y) throws IOException {
         URL url = new URL(mapServiceUrl + tilesetId + "/" + zoom + "/" + x + "/" + y + format + token);
         ByteArrayOutputStream bis = fetchTile(url);
+        System.out.println(zoom + "/" + (x) + "/" + (y));
         return getTexture(bis.toByteArray());
     }
 
@@ -158,6 +160,20 @@ public class MapRasterTiles {
         return new si.um.feri.maprri.raster.utils.ZoomXY(zoom, xtile, ytile);
     }
 
+    public static si.um.feri.maprri.raster.utils.ZoomXY getTileNumber(si.um.feri.maprri.raster.utils.Geolocation location, final int zoom) {
+        int xtile = (int) Math.floor((location.lng + 180) / 360 * (1 << zoom));
+        int ytile = (int) Math.floor((1 - Math.log(Math.tan(Math.toRadians(location.lat)) + 1 / Math.cos(Math.toRadians(location.lat))) / Math.PI) / 2 * (1 << zoom));
+        if (xtile < 0)
+            xtile = 0;
+        if (xtile >= (1 << zoom))
+            xtile = ((1 << zoom) - 1);
+        if (ytile < 0)
+            ytile = 0;
+        if (ytile >= (1 << zoom))
+            ytile = ((1 << zoom) - 1);
+        return new si.um.feri.maprri.raster.utils.ZoomXY(zoom, xtile, ytile);
+    }
+
     //https://www.maptiler.com/google-maps-coordinates-tile-bounds-projection/#15/15.63/46.56
     //https://gis.stackexchange.com/questions/17278/calculate-lat-lon-bounds-for-individual-tile-generated-from-gdal2tiles
     public static double tile2long(int tileNumberX, int zoom) {
@@ -210,13 +226,44 @@ public class MapRasterTiles {
     public static Vector2 getPixelPosition(double lat, double lng, int beginTileX, int beginTileY) {
         double[] worldCoordinate = project(lat, lng, MapRasterTiles.TILE_SIZE);
         // Scale to fit our image
-        double scale = Math.pow(2, si.um.feri.maprri.raster.utils.Constants.ZOOM);
+        double scale = Math.pow(2, Config.ZOOM);
 
         // Apply scale to world coordinates to get image coordinates
         return new Vector2(
                 (int) (Math.floor(worldCoordinate[0] * scale) - (beginTileX * MapRasterTiles.TILE_SIZE)),
-                si.um.feri.maprri.raster.utils.Constants.MAP_HEIGHT - (int) (Math.floor(worldCoordinate[1] * scale) - (beginTileY * MapRasterTiles.TILE_SIZE) - 1)
+                Config.MAP_HEIGHT - (int) (Math.floor(worldCoordinate[1] * scale) - (beginTileY * MapRasterTiles.TILE_SIZE) - 1)
         );
+    }
+
+    public static Geolocation getGeolocationFromPixel(
+        int tileX, int tileY, int pixelOffsetX, int pixelOffsetY, int zoom
+    ) {
+        int tileSize = TILE_SIZE;
+        double n = Math.pow(2, zoom);
+
+        double x = (tileX * tileSize + pixelOffsetX) / (n * tileSize);
+        double y = (tileY * tileSize + pixelOffsetY) / (n * tileSize);
+
+        double lon = x * 360.0 - 180.0;
+        double latRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * y)));
+        double lat = Math.toDegrees(latRad);
+
+        return new Geolocation(lat, lon);
+    }
+
+
+    public static Vector2 worldToLatLng(double pixelX, double pixelY, int zoom, int tileSize) {
+        float scale = (float) (Math.pow(2, zoom) * tileSize);
+
+        float x = (float) (pixelX / scale);
+        float y = (float) (pixelY / scale);
+
+        float lon = x * 360.0f - 180.0f;
+
+        float n = (float) (Math.PI - 2.0f * Math.PI * y);
+        float lat = (float) Math.toDegrees(Math.atan(Math.sinh(n)));
+
+        return new Vector2(lat, lon);
     }
 
     public static si.um.feri.maprri.raster.utils.Geolocation[][] fetchPath(si.um.feri.maprri.raster.utils.Geolocation[] geolocations){
@@ -251,7 +298,7 @@ public class MapRasterTiles {
 
         // Construct the URL
         String urlString = "https://api.geoapify.com/v1/routing?waypoints=" + coordinatesPath.toString() +
-                "&mode=" + "drive" + "&apiKey=" + si.um.feri.maprri.raster.utils.Keys.GEOAPIFY;
+                "&mode=" + "drive" + "&apiKey=" + Keys.GEOAPIFY;
 
         // Open connection
         URL url = new URL(urlString);
@@ -302,5 +349,23 @@ public class MapRasterTiles {
         } else {
             return null;
         }
+    }
+
+    /**
+     * Merges all the needed tiles into a single texture, which is then used as a single large plane in 3D space
+     */
+    public static Texture mergeMapTiles(Texture[] mapTiles, int numTiles, int tileSize) {
+        Pixmap merged = new Pixmap(numTiles * tileSize, numTiles * tileSize, Pixmap.Format.RGBA8888);
+        for (int y = 0; y < numTiles; y++) {
+            for (int x = 0; x < numTiles; x++) {
+                Texture tile = mapTiles[y * numTiles + x];
+                Pixmap tilePixmap = tile.getTextureData().consumePixmap();
+                merged.drawPixmap(tilePixmap, x * tileSize, y * tileSize);
+                tilePixmap.dispose();
+            }
+        }
+        Texture texture = new Texture(merged);
+        merged.dispose();
+        return texture;
     }
 }
