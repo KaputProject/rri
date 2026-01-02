@@ -21,6 +21,7 @@ import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
 import si.um.feri.maprri.raster.classes.CustomPerspectiveCamera;
+import si.um.feri.maprri.raster.classes.Map;
 import si.um.feri.maprri.raster.classes.Tile;
 import si.um.feri.maprri.raster.config.Config;
 import si.um.feri.maprri.raster.utils.Geolocation;
@@ -30,7 +31,6 @@ import si.um.feri.maprri.raster.utils.ZoomXY;
 
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.Map;
 
 public class RasterMap extends ApplicationAdapter implements GestureDetector.GestureListener {
     private ModelBatch modelBatch;
@@ -40,35 +40,18 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
     private Environment environment;
     private MqttUtil mqttUtil;
 
-    private Map<ZoomXY, Tile> loadedTiles = new HashMap<>();
-    private Map<ZoomXY, ModelInstance> tileInstances = new HashMap<>();
-
-    private ZoomXY beginTile;
-    private ZoomXY currentBeginTile;
-    private ZoomXY currentCenterTile;
+    private Map map;
 
     private Vector3 cameraPosition = new Vector3();
     private float cameraPitch = Config.INITIAL_PITCH;
     private float cameraYaw = 0f;
     private float cameraDistance = Config.CAMERA_Z_INITIAL;
 
-    private final Geolocation CENTER_GEOLOCATION = new Geolocation(46.557314, 15.637771);
     private final Geolocation MARKER_GEOLOCATION = new Geolocation(46.559070, 15.638100);
-    private Geolocation currentLocation;
 
     @Override
     public void create() {
-        try {
-            ZoomXY centerTile = MapRasterTiles.getTileNumber(CENTER_GEOLOCATION.lat, CENTER_GEOLOCATION.lng, Config.ZOOM);
-            beginTile = new ZoomXY(Config.ZOOM, centerTile.x - ((Config.NUM_TILES - 1) / 2), centerTile.y - ((Config.NUM_TILES - 1) / 2));
-            currentCenterTile = new ZoomXY(centerTile.zoom, centerTile.x, centerTile.y);
-
-            loadTilesAndBuildInstances(centerTile, beginTile);
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
+        map = new Map();
         mqttUtil = new MqttUtil();
 
         environment = new Environment();
@@ -79,7 +62,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         ModelBuilder modelBuilder = new ModelBuilder();
         markerModel = modelBuilder.createBox(20f, 20f, 40f, new Material(ColorAttribute.createDiffuse(Color.RED)), VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal);
         markerInstance = new ModelInstance(markerModel);
-        Vector2 markerPos2D = MapRasterTiles.getPixelPosition(MARKER_GEOLOCATION.lat, MARKER_GEOLOCATION.lng, beginTile.x, beginTile.y);
+        Vector2 markerPos2D = MapRasterTiles.getPixelPosition(MARKER_GEOLOCATION.lat, MARKER_GEOLOCATION.lng, map.beginTile.x, map.beginTile.y);
         markerInstance.transform.setTranslation(markerPos2D.x, markerPos2D.y, 0f);
 
         // Here I make our custom perspective camera that handles movement
@@ -109,8 +92,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
 
     private void update(float delta) {
         updateCamera();
-        updateLocation();
-        updateLoadedTilesIfNeeded();
+        map.update(cameraPosition);
     }
 
     private void draw() {
@@ -118,7 +100,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
 
         modelBatch.begin(perspectiveCamera);
 
-        for (ModelInstance tileInstance : tileInstances.values()) {
+        for (ModelInstance tileInstance : map.tileInstances.values()) {
             modelBatch.render(tileInstance, environment);
         }
 
@@ -133,101 +115,11 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         perspectiveCamera.update();
     }
 
-    private void updateLoadedTilesIfNeeded() {
-        ZoomXY centerTile = MapRasterTiles.getTileNumber(currentLocation.lat, currentLocation.lng, Config.ZOOM);
-        if (centerTile.x == currentCenterTile.x && centerTile.y == currentCenterTile.y) {
-            return;
-        }
-
-        try {
-            currentBeginTile = new ZoomXY(Config.ZOOM, centerTile.x - ((Config.NUM_TILES - 1) / 2), centerTile.y - ((Config.NUM_TILES - 1) / 2));
-            currentCenterTile = new ZoomXY(centerTile.zoom, centerTile.x, centerTile.y);
-            loadTilesAndBuildInstances(centerTile, currentBeginTile);
-
-//            int mapWidth = Config.NUM_TILES * MapRasterTiles.TILE_SIZE;
-//            int mapHeight = Config.NUM_TILES * MapRasterTiles.TILE_SIZE;
-//            cameraPosition.set(mapWidth / 2f, mapHeight / 2f, cameraPosition.z);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void loadTilesAndBuildInstances(ZoomXY centerTile, ZoomXY currentBeginTile) throws IOException {
-        System.out.println("Loading tiles for center tile: " + centerTile.toString());
-        ModelBuilder modelBuilder = new ModelBuilder();
-        int size = Config.NUM_TILES;
-        int tileSize = MapRasterTiles.TILE_SIZE;
-
-//        tileInstances.keySet().removeIf(key ->
-//            key.zoom != centerTile.zoom || key.x < currentBeginTile.x || key.x >= currentBeginTile.x + size || key.y < currentBeginTile.y || key.y >= currentBeginTile.y + size
-//        );
-
-        for (int y = 0; y < size; y++) {
-            for (int x = 0; x < size; x++) {
-                int tileX = currentBeginTile.x + x;
-                int tileY = currentBeginTile.y + y;
-                ZoomXY key = new ZoomXY(centerTile.zoom, tileX, tileY);
-
-                if (!tileInstances.containsKey(key)) {
-                    Texture tileTexture = MapRasterTiles.getRasterTile(centerTile.zoom, tileX, tileY);
-                    Tile tile = new Tile(tileX, tileY, centerTile.zoom, tileTexture);
-
-                    loadedTiles.put(key, tile);
-
-                    float modelX = (tileX - beginTile.x) * tileSize;
-                    float modelY = (beginTile.y - currentBeginTile.y + (size - 1 - y)) * tileSize;
-
-                    Model tileModel = modelBuilder.createRect(
-                        modelX, modelY, 0,
-                        modelX + tileSize, modelY, 0,
-                        modelX + tileSize, modelY + tileSize, 0,
-                        modelX, modelY + tileSize, 0,
-                        0, 0, 1,
-                        new Material(
-                            ColorAttribute.createDiffuse(Color.WHITE),
-                            TextureAttribute.createDiffuse(tileTexture)
-                        ),
-                        VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal | VertexAttributes.Usage.TextureCoordinates
-                    );
-                    ModelInstance instance = new ModelInstance(tileModel);
-                    tileInstances.put(key, instance);
-                }
-            }
-        }
-    }
-
-    private void disposeTilesAndInstances() {
-        for (Tile tile : loadedTiles.values()) {
-            tile.dispose();
-        }
-        for (ModelInstance instance : tileInstances.values()) {
-            instance.model.dispose();
-        }
-        loadedTiles.clear();
-        tileInstances.clear();
-    }
-
-    private void updateLocation() {
-        int mapHeight = Config.NUM_TILES * MapRasterTiles.TILE_SIZE;
-        int mapPixelX = (int) cameraPosition.x;
-        int mapPixelY = mapHeight - (int) cameraPosition.y;
-
-        int tileX = beginTile.x + (mapPixelX / MapRasterTiles.TILE_SIZE);
-        int tileY = beginTile.y + (mapPixelY / MapRasterTiles.TILE_SIZE);
-
-        currentLocation = MapRasterTiles.getGeolocationFromPixel(
-            tileX, tileY,
-            mapPixelX % MapRasterTiles.TILE_SIZE,
-            mapPixelY % MapRasterTiles.TILE_SIZE,
-            Config.ZOOM
-        );
-    }
-
     @Override
     public void dispose() {
         modelBatch.dispose();
         markerModel.dispose();
-        disposeTilesAndInstances();
+        map.dispose();
     }
 
     @Override
