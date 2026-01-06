@@ -57,6 +57,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         mqttUtil = new MqttUtil();
         httpUtil = new HttpUtil();
 
+        // TODO: Tule je demonstracija povezave, lahk si prilagodita se dodatne funkcije al pa backend ce je ka treba, js se ne vem ker pac vidva bota pol vidla kake podatke rabita
         httpUtil.getUsersFamily();
 
         environment = new Environment();
