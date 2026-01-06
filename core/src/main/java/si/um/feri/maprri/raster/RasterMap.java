@@ -25,6 +25,7 @@ import si.um.feri.maprri.raster.classes.Map;
 import si.um.feri.maprri.raster.classes.Tile;
 import si.um.feri.maprri.raster.config.Config;
 import si.um.feri.maprri.raster.utils.Geolocation;
+import si.um.feri.maprri.raster.utils.HttpUtil;
 import si.um.feri.maprri.raster.utils.MapRasterTiles;
 import si.um.feri.maprri.raster.utils.MqttUtil;
 import si.um.feri.maprri.raster.utils.ZoomXY;
@@ -39,6 +40,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
     private Model markerModel;
     private Environment environment;
     private MqttUtil mqttUtil;
+    private HttpUtil httpUtil;
 
     private Map map;
 
@@ -53,6 +55,10 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
     public void create() {
         map = new Map();
         mqttUtil = new MqttUtil();
+        httpUtil = new HttpUtil();
+
+        // TODO: Tule je demonstracija povezave, lahk si prilagodita se dodatne funkcije al pa backend ce je ka treba, js se ne vem ker pac vidva bota pol vidla kake podatke rabita
+        httpUtil.getUsersFamily();
 
         environment = new Environment();
         environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.65f, 0.65f, 0.65f, 1f));
