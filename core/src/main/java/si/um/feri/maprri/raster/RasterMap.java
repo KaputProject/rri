@@ -3,35 +3,25 @@ package si.um.feri.maprri.raster;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.VertexAttributes;
 import com.badlogic.gdx.graphics.g3d.Environment;
-import com.badlogic.gdx.graphics.g3d.Material;
 import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.ModelBatch;
 import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
-import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
-import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
 import com.badlogic.gdx.input.GestureDetector;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
-import org.json.JSONObject;
 import si.um.feri.maprri.raster.classes.*;
 import si.um.feri.maprri.raster.config.Config;
+import si.um.feri.maprri.raster.manager.DataManager;
 import si.um.feri.maprri.raster.utils.Geolocation;
 import si.um.feri.maprri.raster.utils.HttpUtil;
 import si.um.feri.maprri.raster.utils.MapRasterTiles;
 import si.um.feri.maprri.raster.utils.MqttUtil;
-import si.um.feri.maprri.raster.utils.ZoomXY;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 
 public class RasterMap extends ApplicationAdapter implements GestureDetector.GestureListener {
@@ -61,8 +51,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         httpUtil = new HttpUtil();
         dataManager = new DataManager();
         // TODO: Tule je demonstracija povezave, lahk si prilagodita se dodatne funkcije al pa backend ce je ka treba, js se ne vem ker pac vidva bota pol vidla kake podatke rabita
-        httpUtil.getUsersFamily();
-
+        dataManager.loadBaseData(HttpUtil.getBaseLocationData(),HttpUtil.getFamilyId());
         environment = new Environment();
         environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.65f, 0.65f, 0.65f, 1f));
         environment.add(new DirectionalLight().set(0.8f, 0.8f, 0.8f, -0.5f, -1f, -0.3f));
@@ -235,4 +224,5 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
             e.printStackTrace();
         }
     }
+
 }

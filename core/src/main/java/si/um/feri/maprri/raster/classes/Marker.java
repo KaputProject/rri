@@ -12,17 +12,17 @@ import si.um.feri.maprri.raster.utils.Geolocation;
 import si.um.feri.maprri.raster.utils.MapRasterTiles;
 
 public class Marker {
-    private Transaction transaction;
+    private SimulatedTransaction simulatedTransaction;
     private Geolocation location;
     private Model markerModel;
     private Vector2 markerPos2D;
     private ModelInstance markerInstance;
 
-    public Marker(Transaction transaction, Map map) {
-        this.transaction = transaction;
+    public Marker(SimulatedTransaction simulatedTransaction, Map map) {
+        this.simulatedTransaction = simulatedTransaction;
         this.location = new Geolocation(
-            transaction.getLocation().getLat(),
-            transaction.getLocation().getLng()
+            simulatedTransaction.getLocation().getLat(),
+            simulatedTransaction.getLocation().getLng()
         );
         initModelAndPosition(map);
     }
