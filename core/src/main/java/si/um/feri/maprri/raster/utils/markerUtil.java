@@ -2,7 +2,7 @@ package si.um.feri.maprri.raster.utils;
 
 import si.um.feri.maprri.raster.classes.Map;
 import si.um.feri.maprri.raster.classes.Marker;
-import si.um.feri.maprri.raster.classes.Transaction;
+import si.um.feri.maprri.raster.classes.SimulatedTransaction;
 import si.um.feri.maprri.raster.classes.Transactions;
 
 import java.util.List;
@@ -29,7 +29,7 @@ public class markerUtil {
         if (markers == null || allTransactions == null || map == null) return;
 
         for (Transactions trGroup : allTransactions) {
-            for (Transaction t : trGroup.getTransactions()) {
+            for (SimulatedTransaction t : trGroup.getTransactions()) {
                 markers.add(new Marker(t, map));
             }
         }

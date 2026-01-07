@@ -1,4 +1,8 @@
+// java
 package si.um.feri.maprri.raster.classes;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -7,7 +11,7 @@ import java.util.Objects;
 
 public class Transactions {
     private String type;
-    private final List<Transaction> transactions = new ArrayList<>();
+    private final List<SimulatedTransaction> simulatedTransactions = new ArrayList<>();
 
     public Transactions() {}
 
@@ -23,14 +27,14 @@ public class Transactions {
         this.type = type;
     }
 
-    public List<Transaction> getTransactions() {
-        return Collections.unmodifiableList(transactions);
+    public List<SimulatedTransaction> getTransactions() {
+        return Collections.unmodifiableList(simulatedTransactions);
     }
 
-    public void setTransactions(List<Transaction> transactions) {
-        this.transactions.clear();
-        if (transactions != null) {
-            this.transactions.addAll(transactions);
+    public void setTransactions(List<SimulatedTransaction> simulatedTransactions) {
+        this.simulatedTransactions.clear();
+        if (simulatedTransactions != null) {
+            this.simulatedTransactions.addAll(simulatedTransactions);
         }
     }
 
@@ -39,21 +43,27 @@ public class Transactions {
         return this;
     }
 
-
-    public void addTransaction(Transaction t) {
+    public void addTransaction(SimulatedTransaction t) {
         Objects.requireNonNull(t, "transaction must not be null");
-        this.transactions.add(t);
+        this.simulatedTransactions.add(t);
     }
 
-    public boolean removeTransaction(Transaction t) {
-        return this.transactions.remove(t);
+    public boolean removeTransaction(SimulatedTransaction t) {
+        return this.simulatedTransactions.remove(t);
+    }
+
+    public JSONObject toJson() {
+        JSONArray arr = new JSONArray();
+        for (SimulatedTransaction t : simulatedTransactions) {
+            arr.put(t.toJson());
+        }
+        return new JSONObject()
+            .put("type", type)
+            .put("transactions", arr);
     }
 
     @Override
     public String toString() {
-        return "Transactions{" +
-            "type='" + type + '\'' +
-            ", transactions=" + transactions +
-            '}';
+        return toJson().toString(2);
     }
 }
