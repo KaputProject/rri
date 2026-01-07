@@ -34,6 +34,12 @@ public class Transactions {
         }
     }
 
+    public Transactions withType(String type) {
+        this.type = type;
+        return this;
+    }
+
+
     public void addTransaction(Transaction t) {
         Objects.requireNonNull(t, "transaction must not be null");
         this.transactions.add(t);
