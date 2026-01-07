@@ -20,9 +20,8 @@ import com.badlogic.gdx.input.GestureDetector;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
-import si.um.feri.maprri.raster.classes.CustomPerspectiveCamera;
-import si.um.feri.maprri.raster.classes.Map;
-import si.um.feri.maprri.raster.classes.Tile;
+import org.json.JSONObject;
+import si.um.feri.maprri.raster.classes.*;
 import si.um.feri.maprri.raster.config.Config;
 import si.um.feri.maprri.raster.utils.Geolocation;
 import si.um.feri.maprri.raster.utils.HttpUtil;
@@ -31,7 +30,9 @@ import si.um.feri.maprri.raster.utils.MqttUtil;
 import si.um.feri.maprri.raster.utils.ZoomXY;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 public class RasterMap extends ApplicationAdapter implements GestureDetector.GestureListener {
     private ModelBatch modelBatch;
@@ -49,6 +50,8 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
     private float cameraYaw = 0f;
     private float cameraDistance = Config.CAMERA_Z_INITIAL;
 
+    private DataManager dataManager;
+
     private final Geolocation MARKER_GEOLOCATION = new Geolocation(46.559070, 15.638100);
 
     @Override
@@ -56,7 +59,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         map = new Map();
         mqttUtil = new MqttUtil();
         httpUtil = new HttpUtil();
-
+        dataManager = new DataManager();
         // TODO: Tule je demonstracija povezave, lahk si prilagodita se dodatne funkcije al pa backend ce je ka treba, js se ne vem ker pac vidva bota pol vidla kake podatke rabita
         httpUtil.getUsersFamily();
 
@@ -64,12 +67,9 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.65f, 0.65f, 0.65f, 1f));
         environment.add(new DirectionalLight().set(0.8f, 0.8f, 0.8f, -0.5f, -1f, -0.3f));
 
-        // Test model display
-        ModelBuilder modelBuilder = new ModelBuilder();
-        markerModel = modelBuilder.createBox(20f, 20f, 40f, new Material(ColorAttribute.createDiffuse(Color.RED)), VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal);
-        markerInstance = new ModelInstance(markerModel);
-        Vector2 markerPos2D = MapRasterTiles.getPixelPosition(MARKER_GEOLOCATION.lat, MARKER_GEOLOCATION.lng, map.beginTile.x, map.beginTile.y);
-        markerInstance.transform.setTranslation(markerPos2D.x, markerPos2D.y, 0f);
+        dataManager.addMarker(new Marker(46.559070, 15.638100, map));
+        dataManager.addMarker(new Marker(46.560000, 15.640000, map));
+        dataManager.addMarker(new Marker(46.558000, 15.636000, map));
 
         // Here I make our custom perspective camera that handles movement
         perspectiveCamera = new CustomPerspectiveCamera(67, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
@@ -109,8 +109,13 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         for (ModelInstance tileInstance : map.tileInstances.values()) {
             modelBatch.render(tileInstance, environment);
         }
+        //dobimo markerje in jih narišemo
+        List<Marker> markers = dataManager.getMarkers();
+        for (Marker m : markers) {
+            modelBatch.render(m.getInstance(), environment);
+        }
 
-        modelBatch.render(markerInstance, environment);
+
         modelBatch.end();
     }
 
@@ -124,7 +129,9 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
     @Override
     public void dispose() {
         modelBatch.dispose();
-        markerModel.dispose();
+        for (Marker m : dataManager.getMarkers()) {
+            m.dispose();
+        }
         map.dispose();
     }
 
@@ -221,6 +228,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
             mqttUtil.client.subscribe("kaput/simulate", (topic, msg) -> {
                 String message = new String(msg.getPayload());
                 System.out.println("Received MQTT message on topic " + topic + ": " + message);
+                dataManager.extractTransactionsFromSimulateJson(message);
             });
 
         } catch (Exception e) {
