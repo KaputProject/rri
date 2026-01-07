@@ -100,8 +100,7 @@ public class Map {
                 ZoomXY key = new ZoomXY(centerTile.zoom, tileX, tileY);
 
                 if (!tileInstances.containsKey(key)) {
-                    Texture tileTexture = MapRasterTiles.getRasterTile(centerTile.zoom, tileX, tileY);
-                    Tile tile = new Tile(tileX, tileY, centerTile.zoom, tileTexture);
+                    Tile tile = Tile.load(tileX, tileY, centerTile.zoom);
 
                     loadedTiles.put(key, tile);
 
@@ -116,7 +115,7 @@ public class Map {
                         0, 0, 1,
                         new Material(
                             ColorAttribute.createDiffuse(Color.WHITE),
-                            TextureAttribute.createDiffuse(tileTexture)
+                            TextureAttribute.createDiffuse(tile.texture)
                         ),
                         VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal | VertexAttributes.Usage.TextureCoordinates
                     );
