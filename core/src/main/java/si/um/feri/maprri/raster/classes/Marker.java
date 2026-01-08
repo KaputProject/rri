@@ -16,7 +16,7 @@ public class Marker {
     private Geolocation location;
     private Model markerModel;
     private Vector2 markerPos2D;
-    private ModelInstance markerInstance;
+    protected ModelInstance markerInstance;
 
     public Marker(SimulatedTransaction simulatedTransaction, Map map) {
         this.simulatedTransaction = simulatedTransaction;
