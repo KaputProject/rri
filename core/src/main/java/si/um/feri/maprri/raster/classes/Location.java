@@ -52,6 +52,29 @@ public class Location {
 
     public double getLng() { return lng; }
 
+    public double getTotal_inflow() {
+        return total_inflow;
+    }
+
+    public double getTotal_outflow() {
+        return total_outflow;
+    }
+
+    public int getNumberOfTrans() {
+        return numberOfTrans;
+    }
+
+    public LocationUser getUser(String userId) {
+        if (userId == null) return null;
+        for (LocationUser u : users) {
+            if (userId.equals(u.getId()) || userId.equalsIgnoreCase(u.getUsername())) {
+                return u;
+            }
+        }
+        return null;
+    }
+
+
     public List<LocationUser> getUsers() {
         return Collections.unmodifiableList(users);
     }

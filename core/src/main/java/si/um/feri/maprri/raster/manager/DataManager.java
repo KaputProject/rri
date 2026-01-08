@@ -3,6 +3,8 @@ package si.um.feri.maprri.raster.manager;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import si.um.feri.maprri.raster.classes.*;
+import si.um.feri.maprri.raster.classes.graphics.ColumnMode;
+import si.um.feri.maprri.raster.classes.graphics.ColumnVisual;
 import si.um.feri.maprri.raster.utils.markerUtil;
 
 import java.time.Instant;
@@ -189,4 +191,61 @@ public class DataManager {
     public List<Marker> getMarkers() {
         return markers;
     }
+
+    public List<ColumnVisual> getColumnVisuals(ColumnMode mode, String userId) {
+        List<ColumnVisual> result = new ArrayList<>();
+
+        for (Location loc : BaseLocations) {
+            if (userId == null) {
+                // Family view - agregirani podatki za lokacijo
+                double value = switch (mode) {
+                    case INFLOW -> loc.getTotal_inflow();
+                    case OUTFLOW -> loc.getTotal_outflow();
+                    case COMBINED -> loc.getTotal_inflow() - loc.getTotal_outflow();
+                };
+                if (Math.abs(value) > 0.001) {
+                    result.add(new ColumnVisual(loc, null, value, mode));
+                }
+            } else {
+                // Personal view - podatki za konkretnega uporabnika
+                LocationUser u = loc.getUser(userId);
+                if (u == null) continue;
+
+                double value = switch (mode) {
+                    case INFLOW -> u.getInflow();
+                    case OUTFLOW -> u.getOutflow();
+                    case COMBINED -> u.getInflow() - u.getOutflow();
+                };
+                if (Math.abs(value) > 0.001) {
+                    result.add(new ColumnVisual(loc, userId, value, mode));
+                }
+            }
+        }
+        return result;
+    }
+
+    public double getMaxValue(ColumnMode mode, String userId) {
+        double max = 0;
+        for (Location loc : BaseLocations) {
+            if (userId == null) {
+                double value = switch (mode) {
+                    case INFLOW -> loc.getTotal_inflow();
+                    case OUTFLOW -> loc.getTotal_outflow();
+                    case COMBINED -> Math.abs(loc.getTotal_inflow() - loc.getTotal_outflow());
+                };
+                max = Math.max(max, value);
+            } else {
+                LocationUser u = loc.getUser(userId);
+                if (u == null) continue;
+                double value = switch (mode) {
+                    case INFLOW -> u.getInflow();
+                    case OUTFLOW -> u.getOutflow();
+                    case COMBINED -> Math.abs(u.getInflow() - u.getOutflow());
+                };
+                max = Math.max(max, value);
+            }
+        }
+        return max;
+    }
+
 }
