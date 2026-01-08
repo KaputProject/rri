@@ -2,8 +2,10 @@ package si.um.feri.maprri.raster.classes;
 
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.VertexAttributes;
+import com.badlogic.gdx.graphics.g3d.Environment;
 import com.badlogic.gdx.graphics.g3d.Material;
 import com.badlogic.gdx.graphics.g3d.Model;
+import com.badlogic.gdx.graphics.g3d.ModelBatch;
 import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
@@ -16,7 +18,7 @@ public class Marker {
     private Geolocation location;
     private Model markerModel;
     private Vector2 markerPos2D;
-    private ModelInstance markerInstance;
+    protected ModelInstance markerInstance;
 
     public Marker(SimulatedTransaction simulatedTransaction, Map map) {
         this.simulatedTransaction = simulatedTransaction;
@@ -47,6 +49,10 @@ public class Marker {
             map.beginTile.y
         );
         markerInstance.transform.setTranslation(markerPos2D.x, markerPos2D.y, 1f);
+    }
+
+    public void render(ModelBatch batch, Environment environment){
+        batch.render(markerInstance, environment);
     }
 
     public ModelInstance getInstance() {
