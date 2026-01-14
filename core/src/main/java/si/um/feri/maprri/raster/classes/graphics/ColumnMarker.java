@@ -2,21 +2,33 @@ package si.um.feri.maprri.raster.classes.graphics;
 
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
+import com.badlogic.gdx.math.Vector2;
 
 import si.um.feri.maprri.raster.classes.Map;
 import si.um.feri.maprri.raster.classes.Marker;
+import si.um.feri.maprri.raster.utils.MapRasterTiles;
 
 public class ColumnMarker extends Marker {
 
     private final ColumnVisual visual;
+    private final Map map;
     private float targetHeight;
     private float currentHeight = 0f;
     private boolean visible = true;
+    private Vector2 pixelPosition;
 
     public ColumnMarker(ColumnVisual visual, Map map) {
         super(visual.getLat(), visual.getLng(), map);
         this.visual = visual;
+        this.map = map;
         this.targetHeight = 0f;
+        // Izračunaj pixel pozicijo iz lat/lng
+        this.pixelPosition = MapRasterTiles.getPixelPosition(
+            visual.getLat(),
+            visual.getLng(),
+            map.beginTile.x,
+            map.beginTile.y
+        );
         applyColor();
     }
 
@@ -65,10 +77,16 @@ public class ColumnMarker extends Marker {
 
     private void updateHeight(float height) {
         if (markerInstance != null) {
-            markerInstance.transform.setToScaling(1f, Math.max(height, 0.01f), 1f);
+            // Stolpec raste v Z smeri (gor), pozicija je na X-Y ravnini zemljevida
+            // Osnovni box iz Marker je 20x20x40, torej skaliramo Z os
+            float safeHeight = Math.max(height, 0.01f);
+            float scaleZ = safeHeight / 40f; // 40f je osnovna višina box modela
 
-            float[] pos = getWorldPosition();
-            markerInstance.transform.setTranslation(pos[0], height / 2f, pos[1]);
+            // Resetiraj transformacijo in nastavi pozicijo ter skaliranje
+            markerInstance.transform.idt();
+            // Pozicija: stolpec na X,Y, dvignjen za polovico višine da je dno na Z=0
+            markerInstance.transform.setToTranslation(pixelPosition.x, pixelPosition.y, safeHeight / 2f);
+            markerInstance.transform.scale(1f, 1f, scaleZ);
         }
     }
 
@@ -92,14 +110,13 @@ public class ColumnMarker extends Marker {
         return visual.getLocationId() + "_" + visual.userId + "_" + visual.mode;
     }
 
-    public boolean containsPoint(float worldX, float worldZ, float threshold) {
-        float[] pos = getWorldPosition();
-        return Math.abs(pos[0] - worldX) < threshold &&
-            Math.abs(pos[1] - worldZ) < threshold;
+    public boolean containsPoint(float worldX, float worldY, float threshold) {
+        return Math.abs(pixelPosition.x - worldX) < threshold &&
+            Math.abs(pixelPosition.y - worldY) < threshold;
     }
 
-    private float[] getWorldPosition() {
-        return new float[]{(float) visual.getLng(), (float) visual.getLat()};
+    public Vector2 getPixelPosition() {
+        return pixelPosition;
     }
 }
 

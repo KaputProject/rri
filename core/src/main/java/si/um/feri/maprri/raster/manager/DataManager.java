@@ -198,11 +198,22 @@ public class DataManager {
         for (Location loc : BaseLocations) {
             if (userId == null) {
                 // Family view - agregirani podatki za lokacijo
-                double value = switch (mode) {
-                    case INFLOW -> loc.getTotal_inflow();
-                    case OUTFLOW -> loc.getTotal_outflow();
-                    case COMBINED -> loc.getTotal_inflow() - loc.getTotal_outflow();
-                };
+                double value;
+                switch (mode) {
+                    case INFLOW:
+                        value = loc.getTotal_inflow();
+                        break;
+                    case OUTFLOW:
+                        value = loc.getTotal_outflow();
+                        break;
+                    case COMBINED:
+                        value = loc.getTotal_inflow() - loc.getTotal_outflow();
+                        break;
+                    default:
+                        value = 0.0;
+                        break;
+                }
+
                 if (Math.abs(value) > 0.001) {
                     result.add(new ColumnVisual(loc, null, value, mode));
                 }
@@ -211,11 +222,22 @@ public class DataManager {
                 LocationUser u = loc.getUser(userId);
                 if (u == null) continue;
 
-                double value = switch (mode) {
-                    case INFLOW -> u.getInflow();
-                    case OUTFLOW -> u.getOutflow();
-                    case COMBINED -> u.getInflow() - u.getOutflow();
-                };
+                double value;
+                switch (mode) {
+                    case INFLOW:
+                        value = u.getInflow();
+                        break;
+                    case OUTFLOW:
+                        value = u.getOutflow();
+                        break;
+                    case COMBINED:
+                        value = u.getInflow() - u.getOutflow();
+                        break;
+                    default:
+                        value = 0.0;
+                        break;
+                }
+
                 if (Math.abs(value) > 0.001) {
                     result.add(new ColumnVisual(loc, userId, value, mode));
                 }
@@ -228,20 +250,41 @@ public class DataManager {
         double max = 0;
         for (Location loc : BaseLocations) {
             if (userId == null) {
-                double value = switch (mode) {
-                    case INFLOW -> loc.getTotal_inflow();
-                    case OUTFLOW -> loc.getTotal_outflow();
-                    case COMBINED -> Math.abs(loc.getTotal_inflow() - loc.getTotal_outflow());
-                };
+                double value;
+                switch (mode) {
+                    case INFLOW:
+                        value = loc.getTotal_inflow();
+                        break;
+                    case OUTFLOW:
+                        value = loc.getTotal_outflow();
+                        break;
+                    case COMBINED:
+                        value = Math.abs(loc.getTotal_inflow() - loc.getTotal_outflow());
+                        break;
+                    default:
+                        value = 0.0;
+                        break;
+                }
                 max = Math.max(max, value);
             } else {
                 LocationUser u = loc.getUser(userId);
                 if (u == null) continue;
-                double value = switch (mode) {
-                    case INFLOW -> u.getInflow();
-                    case OUTFLOW -> u.getOutflow();
-                    case COMBINED -> Math.abs(u.getInflow() - u.getOutflow());
-                };
+
+                double value;
+                switch (mode) {
+                    case INFLOW:
+                        value = u.getInflow();
+                        break;
+                    case OUTFLOW:
+                        value = u.getOutflow();
+                        break;
+                    case COMBINED:
+                        value = Math.abs(u.getInflow() - u.getOutflow());
+                        break;
+                    default:
+                        value = 0.0;
+                        break;
+                }
                 max = Math.max(max, value);
             }
         }
