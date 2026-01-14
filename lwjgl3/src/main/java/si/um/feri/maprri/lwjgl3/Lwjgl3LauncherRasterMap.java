@@ -29,7 +29,7 @@ public class Lwjgl3LauncherRasterMap {
         //// useful for testing performance, but can also be very stressful to some hardware.
         //// You may also need to configure GPU drivers to fully disable Vsync; this can cause screen tearing.
 
-        configuration.setWindowedMode(900, 900);
+        configuration.setWindowedMode(1900, 900);
         configuration.setResizable(false);
         //// You can change these files; they are in lwjgl3/src/main/resources/ .
         //// They can also be loaded from the root of assets/ .
