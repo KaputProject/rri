@@ -4,6 +4,8 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.math.Vector2;
 
+import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.math.collision.BoundingBox;
 import si.um.feri.maprri.raster.classes.Map;
 import si.um.feri.maprri.raster.classes.Marker;
 import si.um.feri.maprri.raster.utils.MapRasterTiles;
@@ -16,6 +18,7 @@ public class ColumnMarker extends Marker {
     private float currentHeight = 0f;
     private boolean visible = true;
     private Vector2 pixelPosition;
+    private BoundingBox hitbox = new BoundingBox();
 
     public ColumnMarker(ColumnVisual visual, Map map) {
         super(visual.getLat(), visual.getLng(), map);
@@ -114,9 +117,23 @@ public class ColumnMarker extends Marker {
         return Math.abs(pixelPosition.x - worldX) < threshold &&
             Math.abs(pixelPosition.y - worldY) < threshold;
     }
-
     public Vector2 getPixelPosition() {
         return pixelPosition;
     }
+    public float getCurrentHeight() {
+        return currentHeight;
+    }
+    @Override
+    public BoundingBox getHitboxBoundingBox() {
+        Vector2 pos = getPixelPosition();
+        float radius = getHitboxRadius();
+        float size = radius * 2f;
+        float half = size / 2f;
+        float minX = pos.x - half, maxX = pos.x + half;
+        float minY = pos.y - half, maxY = pos.y + half;
+        float bottomZ = 0f, topZ = getCurrentHeight();
+        return new BoundingBox(new Vector3(minX, minY, bottomZ), new Vector3(maxX, maxY, topZ));
+    }
+
 }
 

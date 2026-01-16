@@ -4,6 +4,10 @@ import com.badlogic.gdx.graphics.g3d.Environment;
 import com.badlogic.gdx.graphics.g3d.ModelBatch;
 import com.badlogic.gdx.graphics.Camera;
 
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.math.collision.BoundingBox;
+import com.badlogic.gdx.math.collision.Ray;
 import si.um.feri.maprri.raster.classes.Map;
 import si.um.feri.maprri.raster.classes.graphics.*;
 
@@ -15,7 +19,6 @@ public class ColumnManager {
     private final Map map;
     private final java.util.Map<String, ColumnMarker> columns = new HashMap<>();
     private final HeightScaler scaler;
-
     private ColumnMode currentMode = ColumnMode.COMBINED;
     private String currentUserId = null; // null = family view
 
@@ -104,12 +107,43 @@ public class ColumnManager {
         }
         return null;
     }
-
     public void onDataUpdated() {
         rebuild();
     }
-
     public void dispose() {
         columns.clear();
+    }
+    public void renderHitboxes(ShapeRenderer shapeRenderer) {
+        for (ColumnMarker cm : columns.values()) {
+            BoundingBox box = cm.getHitboxBoundingBox();
+            Vector3 min = box.min;
+            Vector3 max = box.max;
+            // Draw box edges (12 lines)
+            // Bottom rectangle
+            shapeRenderer.line(min.x, min.y, min.z, max.x, min.y, min.z);
+            shapeRenderer.line(max.x, min.y, min.z, max.x, max.y, min.z);
+            shapeRenderer.line(max.x, max.y, min.z, min.x, max.y, min.z);
+            shapeRenderer.line(min.x, max.y, min.z, min.x, min.y, min.z);
+            // Top rectangle
+            shapeRenderer.line(min.x, min.y, max.z, max.x, min.y, max.z);
+            shapeRenderer.line(max.x, min.y, max.z, max.x, max.y, max.z);
+            shapeRenderer.line(max.x, max.y, max.z, min.x, max.y, max.z);
+            shapeRenderer.line(min.x, max.y, max.z, min.x, min.y, max.z);
+            // Vertical lines
+            shapeRenderer.line(min.x, min.y, min.z, min.x, min.y, max.z);
+            shapeRenderer.line(max.x, min.y, min.z, max.x, min.y, max.z);
+            shapeRenderer.line(max.x, max.y, min.z, max.x, max.y, max.z);
+            shapeRenderer.line(min.x, max.y, min.z, min.x, max.y, max.z);
+        }
+    }
+
+
+    public ColumnMarker getHitColumn(Ray ray, Vector3 intersection) {
+        for (ColumnMarker cm : columns.values()) {
+            if (cm.intersectsRay(ray, intersection)) {
+                return cm;
+            }
+        }
+        return null;
     }
 }

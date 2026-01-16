@@ -52,6 +52,7 @@ public class HttpUtil {
             if (response.isSuccessful() && response.body() != null) {
                 String responseBody = response.body().string();
                 JSONObject respJson = new JSONObject(responseBody);
+                System.out.println("Obtained respJson: " +  respJson.getString("family"));
                 return respJson.getString("family");
             } else {
                 return "";
