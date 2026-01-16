@@ -3,7 +3,7 @@ package si.um.feri.maprri.raster.classes.graphics;
 import si.um.feri.maprri.raster.classes.Location;
 
 public class ColumnVisual {
-    public final Location location;
+    private final Location location;
     public final String userId;
     public final double value;
     public final ColumnMode mode;
@@ -26,6 +26,7 @@ public class ColumnVisual {
     public String getLocationId() {
         return location.getId();
     }
+    public Location getLocation() {return location;}
 
     public String getLocationName() {
         return location.getIdentifier();

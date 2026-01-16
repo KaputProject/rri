@@ -74,9 +74,9 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.65f, 0.65f, 0.65f, 1f));
         environment.add(new DirectionalLight().set(0.8f, 0.8f, 0.8f, -0.5f, -1f, -0.3f));
 
-        dataManager.addMarker(new Marker(46.559070, 15.638100, map));
-        dataManager.addMarker(new Marker(46.560000, 15.640000, map));
-        dataManager.addMarker(new Marker(46.558000, 15.636000, map));
+//        dataManager.addMarker(new Marker(46.559070, 15.638100, map));
+//        dataManager.addMarker(new Marker(46.560000, 15.640000, map));
+//        dataManager.addMarker(new Marker(46.558000, 15.636000, map));
 
         columnManager = new ColumnManager(dataManager, map, maxHeight);
         columnManager.rebuild();
@@ -182,8 +182,8 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         Vector3 intersection = new Vector3();
         ColumnMarker hit = columnManager.getHitColumn(pickRay, intersection);
         if (hit != null) {
-            System.out.println("Hit column: " + hit.getColumnId());
-            // call show details hrere
+            JSONObject detailsJson = hit.getVisual().getLocation().toJson(); // Adjust this to get the correct JSON
+            hudView.showDetails(detailsJson);
             return true;
         }
         return false;

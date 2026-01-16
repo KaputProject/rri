@@ -118,7 +118,6 @@ public class ColumnManager {
             BoundingBox box = cm.getHitboxBoundingBox();
             Vector3 min = box.min;
             Vector3 max = box.max;
-            // Draw box edges (12 lines)
             // Bottom rectangle
             shapeRenderer.line(min.x, min.y, min.z, max.x, min.y, min.z);
             shapeRenderer.line(max.x, min.y, min.z, max.x, max.y, min.z);
@@ -136,8 +135,6 @@ public class ColumnManager {
             shapeRenderer.line(min.x, max.y, min.z, min.x, max.y, max.z);
         }
     }
-
-
     public ColumnMarker getHitColumn(Ray ray, Vector3 intersection) {
         for (ColumnMarker cm : columns.values()) {
             if (cm.intersectsRay(ray, intersection)) {
