@@ -45,7 +45,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
     private float debugToggleCooldown = 0f;
     private boolean debugMode = false;
     private Map map;
-
+    private boolean invertMouse = false;
     private Vector3 cameraPosition = new Vector3();
     private float cameraPitch = Config.INITIAL_PITCH;
     private float cameraYaw = 0f;
@@ -162,9 +162,11 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
 
     @Override
     public boolean pan(float x, float y, float deltaX, float deltaY) {
+        float pitchDelta = invertMouse ? -deltaX : deltaX;
         cameraPitch -= deltaY * Config.CAMERA_MOUSE_PITCH_SPEED;
         cameraPitch = MathUtils.clamp(cameraPitch, Config.MIN_PITCH, Config.MAX_PITCH);
-        cameraYaw -= deltaX * Config.CAMERA_MOUSE_YAW;
+
+        cameraYaw -= pitchDelta * Config.CAMERA_MOUSE_YAW;
         cameraYaw = (cameraYaw + 360f) % 360f;
         return true;
     }
@@ -246,14 +248,16 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
 //        cameraPosition.x = MathUtils.clamp(cameraPosition.x, 0, mapWidth);
 //        cameraPosition.y = MathUtils.clamp(cameraPosition.y, 0, mapHeight);
 
-
+        debugToggleCooldown = Math.max(0f, debugToggleCooldown - delta);
         if (Gdx.input.isKeyPressed(Input.Keys.R)) {
             if (debugToggleCooldown <= 0f) {
                 debugMode = !debugMode;
                 debugToggleCooldown = 0.5f;
             }
         }
-        debugToggleCooldown = Math.max(0f, debugToggleCooldown - delta);
+        if (Gdx.input.isKeyJustPressed(Input.Keys.I)) {
+            invertMouse = !invertMouse;
+        }
 
         if (Gdx.input.isKeyPressed(Input.Keys.E)) {
             cameraPosition.z += Config.CAMERA_Z_SPEED * delta;

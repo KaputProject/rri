@@ -41,7 +41,8 @@ public class HudView {
             "Mouse drag       - Rotate camera",
             "Pinch / Scroll  - Zoom",
             "Tap                 - Select / interact",
-            "R        - Debug mode"
+            "R        - Debug mode",
+            "I    - Inverse mouse controls (x axis)",
         };
 
         for (String line : lines) {
