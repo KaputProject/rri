@@ -52,7 +52,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
     private LocationScheduler locationScheduler;
     private float maxHeight = 200f;
     private ShapeRenderer shapeRenderer;
-    private boolean familyView = false;
+    private static boolean familyView = false;
 
     private final Geolocation MARKER_GEOLOCATION = new Geolocation(46.559070, 15.638100);
 
@@ -301,6 +301,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
                 locationScheduler.updateTransactions(dataManager.getTransactionsByType("simulate"));
             });
 
+
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -314,7 +315,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
             }
         }
     }
-    public boolean getFamilyView() {
+    public static boolean isFamilyView() {
         return familyView;
     }
     // Za spremembo filtra (npr. iz UI)

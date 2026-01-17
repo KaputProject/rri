@@ -9,13 +9,14 @@ public class UserColorRegistry {
     private static int colorIndex = 0;
 
     private static final Color[] PALETTE = {
-        new Color(0.2f, 0.6f, 1f, 1f),
-        new Color(1f, 0.4f, 0.4f, 1f),
-        new Color(0.4f, 0.9f, 0.4f, 1f),
-        new Color(1f, 0.8f, 0.2f, 1f),
-        new Color(0.8f, 0.4f, 1f, 1f),
-        new Color(0.2f, 0.9f, 0.9f, 1f),
-        new Color(1f, 0.6f, 0.2f, 1f)
+        new Color(0.2f, 0.6f, 1f, 1f), // Sky blue
+        new Color(1f, 0.8f, 0.2f, 1f), // Amber
+        new Color(0.8f, 0.4f, 1f, 1f), // Purple
+        new Color(0.2f, 0.9f, 0.9f, 1f), // Cyan
+        new Color(1f, 0.6f, 0.2f, 1f),// Orange
+        new Color(1f, 0.4f, 0.4f, 1f), // Soft red
+        new Color(0.4f, 0.9f, 0.4f, 1f), // Light green
+
     };
 
     public static Color getColor(String userId) {

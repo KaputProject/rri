@@ -42,7 +42,7 @@ public class HudView {
         pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
         pixmap.setColor(0.2f, 0.2f, 0.2f, 0.8f);
         pixmap.fill();
-        familyModeLabel = new Label("FAMILY MODE: ON", labelStyle);
+        familyModeLabel = new Label("FAMILY MODE: OFF", labelStyle);
         showFamilyLabel();
         showControls();
     }

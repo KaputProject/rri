@@ -9,11 +9,14 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.BoundingBox;
 import com.badlogic.gdx.math.collision.Ray;
+import si.um.feri.maprri.raster.RasterMap;
 import si.um.feri.maprri.raster.classes.Location;
 import si.um.feri.maprri.raster.classes.Map;
 import si.um.feri.maprri.raster.classes.graphics.*;
 
 import java.util.*;
+
+import static si.um.feri.maprri.raster.RasterMap.isFamilyView;
 
 public class ColumnManager {
 
@@ -23,6 +26,9 @@ public class ColumnManager {
     private final HeightScaler scaler;
     private ColumnMode currentMode = ColumnMode.COMBINED;
     private String currentUserId = null; // null = family view
+    private static final float MARKER_SIZE = 20f;
+    private static final float GAP = 2f; // minimalna razdalja, da se ne dotikajo
+    private static final float CELL = MARKER_SIZE + GAP;
 
     public ColumnManager(DataManager dataManager, Map map, float maxHeight) {
         this.dataManager = dataManager;
@@ -57,7 +63,7 @@ public class ColumnManager {
             float height = scaler.scale(visual.value);
 
             marker.updateVisualValue(visual.value);
-            marker.applyColor();
+            marker.applyColor(isFamilyView());
             marker.setTargetHeight(height);
             marker.show();
         }
@@ -90,7 +96,12 @@ public class ColumnManager {
         // Assign offsets within each group
         for (java.util.List<ColumnMarker> group : positionGroups.values()) {
             int n = group.size();
-            if (n > 1) {
+            if (isFamilyView() && n == 2) {
+                // Place side by side as 1x2 rectangle (share a full side)
+                float markerWidth = 20f; // Adjust to your actual marker width if needed
+                group.get(0).setRenderOffset(-markerWidth / 2f, 0);
+                group.get(1).setRenderOffset(markerWidth / 2f, 0);
+            } else if (n > 1) {
                 float radius = 15f;
                 for (int i = 0; i < n; i++) {
                     double angle = 2 * Math.PI * i / n;

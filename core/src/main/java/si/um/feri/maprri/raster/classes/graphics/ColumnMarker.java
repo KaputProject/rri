@@ -6,6 +6,7 @@ import com.badlogic.gdx.math.Vector2;
 
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.BoundingBox;
+import si.um.feri.maprri.raster.RasterMap;
 import si.um.feri.maprri.raster.classes.Map;
 import si.um.feri.maprri.raster.classes.Marker;
 import si.um.feri.maprri.raster.utils.MapRasterTiles;
@@ -34,7 +35,7 @@ public class ColumnMarker extends Marker {
             map.beginTile.x,
             map.beginTile.y
         );
-        applyColor();
+        applyColor(RasterMap.isFamilyView());
     }
     public void updateVisualValue(double value) {
         visual.value = value;
@@ -44,9 +45,13 @@ public class ColumnMarker extends Marker {
         this.offsetX = dx;
         this.offsetY = dy;
     }
-    public void applyColor() {
+    public void applyColor(boolean familyView) {
         Color color;
-        if (visual.userId != null && visual.mode != null) {
+        if (familyView && visual.userId != null) {
+            // Use unique color for each user in family view
+            color = UserColorRegistry.getColor(visual.userId);
+        } else if (visual.mode != null) {
+            // fallback for mode-based coloring
             if (visual.mode == ColumnMode.INFLOW) {
                 color = new Color(0.3f, 0.8f, 0.3f, 1f); // green
             } else if (visual.mode == ColumnMode.OUTFLOW) {
@@ -59,13 +64,13 @@ public class ColumnMarker extends Marker {
                 color = new Color(0.5f, 0.5f, 0.5f, 1f); // fallback
             }
         } else {
-            // fallback for family mode
             color = new Color(0.5f, 0.5f, 0.5f, 1f);
         }
         if (markerInstance != null && !markerInstance.materials.isEmpty()) {
             markerInstance.materials.get(0).set(ColorAttribute.createDiffuse(color));
         }
     }
+
 
     public void setTargetHeight(float height) {
         this.targetHeight = height;

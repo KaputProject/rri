@@ -205,6 +205,7 @@ public class DataManager {
     public List<ColumnVisual> getColumnVisuals(ColumnMode mode, String userId) {
         List<ColumnVisual> result = new ArrayList<>();
         if (userId == null) {
+            // FAMILY VIEW: For each location, for each family member, add a column if they have data
             for (Location loc : BaseLocations) {
                 for (Person member : family) {
                     LocationUser u = loc.getUser(member.getId());
@@ -216,12 +217,14 @@ public class DataManager {
                         case COMBINED: value = u.getInflow() - u.getOutflow(); break;
                         default: value = 0.0; break;
                     }
+                    // Only add if the value is significant
                     if (Math.abs(value) > 0.001) {
                         result.add(new ColumnVisual(loc, member.getId(), value, mode));
                     }
                 }
             }
         } else {
+            // USER VIEW: Only show the main user's column per location
             for (Location loc : BaseLocations) {
                 LocationUser u = loc.getUser(userId);
                 if (u == null) continue;
