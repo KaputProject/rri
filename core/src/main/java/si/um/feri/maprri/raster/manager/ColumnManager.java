@@ -5,6 +5,7 @@ import com.badlogic.gdx.graphics.g3d.ModelBatch;
 import com.badlogic.gdx.graphics.Camera;
 
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.BoundingBox;
 import com.badlogic.gdx.math.collision.Ray;
@@ -60,6 +61,7 @@ public class ColumnManager {
             marker.setTargetHeight(height);
             marker.show();
         }
+        applyNonOverlappingOffsets();
     }
 
     public void update(float delta) {
@@ -74,6 +76,64 @@ public class ColumnManager {
             }
         }
     }
+    private void applyNonOverlappingOffsets() {
+        java.util.Map<String, java.util.List<ColumnMarker>> positionGroups = new java.util.HashMap<>();
+        float threshold = 20.0f;
+
+        // Group markers by quantized position
+        for (ColumnMarker marker : columns.values()) {
+            Vector2 pos = marker.getPixelPosition();
+            String key = Math.round(pos.x / threshold) + "_" + Math.round(pos.y / threshold);
+            positionGroups.computeIfAbsent(key, k -> new java.util.ArrayList<>()).add(marker);
+        }
+
+        // Assign offsets within each group
+        for (java.util.List<ColumnMarker> group : positionGroups.values()) {
+            int n = group.size();
+            if (n > 1) {
+                float radius = 15f;
+                for (int i = 0; i < n; i++) {
+                    double angle = 2 * Math.PI * i / n;
+                    float dx = (float) (radius * Math.cos(angle));
+                    float dy = (float) (radius * Math.sin(angle));
+                    group.get(i).setRenderOffset(dx, dy);
+                }
+            } else {
+                group.get(0).setRenderOffset(0, 0);
+            }
+        }
+
+        // Further separate groups that are still too close
+        java.util.List<Vector2> groupCenters = new java.util.ArrayList<>();
+        java.util.List<java.util.List<ColumnMarker>> groupList = new java.util.ArrayList<>(positionGroups.values());
+        for (java.util.List<ColumnMarker> group : groupList) {
+            Vector2 pos = group.get(0).getPixelPosition();
+            groupCenters.add(new Vector2(pos.x + group.get(0).offsetX, pos.y + group.get(0).offsetY));
+        }
+        float minGroupDist = 30f; // Minimum allowed distance between group centers
+        for (int i = 0; i < groupCenters.size(); i++) {
+            for (int j = i + 1; j < groupCenters.size(); j++) {
+                Vector2 a = groupCenters.get(i);
+                Vector2 b = groupCenters.get(j);
+                if (a.dst(b) < minGroupDist) {
+                    // Push groups apart
+                    Vector2 dir = new Vector2(b).sub(a).nor();
+                    if (dir.isZero()) dir.set(1, 0);
+                    dir.scl((minGroupDist - a.dst(b)) / 2f);
+                    for (ColumnMarker m : groupList.get(i)) {
+                        m.setRenderOffset(m.offsetX - dir.x, m.offsetY - dir.y);
+                    }
+                    for (ColumnMarker m : groupList.get(j)) {
+                        m.setRenderOffset(m.offsetX + dir.x, m.offsetY + dir.y);
+                    }
+                    // Update group centers
+                    a.add(dir.scl(-1));
+                    b.add(dir);
+                }
+            }
+        }
+    }
+
 
     public void render(ModelBatch batch, Environment environment) {
         for (ColumnMarker marker : columns.values()) {

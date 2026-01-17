@@ -19,6 +19,8 @@ public class ColumnMarker extends Marker {
     private boolean visible = true;
     private Vector2 pixelPosition;
     private BoundingBox hitbox = new BoundingBox();
+    public float offsetX = 0;
+    public float offsetY = 0;
 
     public ColumnMarker(ColumnVisual visual, Map map) {
         super(visual.getLat(), visual.getLng(), map);
@@ -38,10 +40,13 @@ public class ColumnMarker extends Marker {
         visual.value = value;
     }
 
+    public void setRenderOffset(float dx, float dy) {
+        this.offsetX = dx;
+        this.offsetY = dy;
+    }
     public void applyColor() {
         Color color;
         if (visual.mode == ColumnMode.COMBINED) {
-            System.out.println("Value: " + visual.value + "combined mode");
             color = visual.value >= 0
                 ? new Color(0.3f, 0.8f, 0.3f, 1f)
                 : new Color(0.8f, 0.3f, 0.3f, 1f);
@@ -92,7 +97,11 @@ public class ColumnMarker extends Marker {
             // Resetiraj transformacijo in nastavi pozicijo ter skaliranje
             markerInstance.transform.idt();
             // Pozicija: stolpec na X,Y, dvignjen za polovico višine da je dno na Z=0
-            markerInstance.transform.setToTranslation(pixelPosition.x, pixelPosition.y, safeHeight / 2f);
+            markerInstance.transform.setToTranslation(
+                pixelPosition.x + offsetX,
+                pixelPosition.y + offsetY,
+                safeHeight / 2f
+            );
             markerInstance.transform.scale(1f, 1f, scaleZ);
         }
     }
@@ -133,8 +142,8 @@ public class ColumnMarker extends Marker {
         float radius = getHitboxRadius();
         float size = radius * 2f;
         float half = size / 2f;
-        float minX = pos.x - half, maxX = pos.x + half;
-        float minY = pos.y - half, maxY = pos.y + half;
+        float minX = pos.x + offsetX - half, maxX = pos.x + offsetX + half;
+        float minY = pos.y + offsetY - half, maxY = pos.y + offsetY + half;
         float bottomZ = 0f, topZ = getCurrentHeight();
         return new BoundingBox(new Vector3(minX, minY, bottomZ), new Vector3(maxX, maxY, topZ));
     }
