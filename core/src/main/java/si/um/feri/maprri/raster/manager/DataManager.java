@@ -121,8 +121,7 @@ public class DataManager {
                 JSONObject obj = arr.getJSONObject(i);
 
                 String id = obj.getString("_id");
-                String datetimeStr = obj.getString("datetime");
-                long datetime = Instant.parse(datetimeStr).toEpochMilli();
+                long datetime = obj.getLong("datetime");
 
                 JSONObject locObj = obj.getJSONObject("location");
                 String locId = locObj.getString("_id");
@@ -136,7 +135,7 @@ public class DataManager {
                 if (usersArr != null) {
                     for (int ui = 0; ui < usersArr.length(); ui++) {
                         JSONObject uo = usersArr.getJSONObject(ui);
-                        String uid = uo.getString("_id");
+                        String uid = uo.optString("userId", uo.optString("_id", ""));
                         String username = uo.optString("username", "");
                         int numbOfTrans = uo.optInt("numbOfTrans", 0);
                         double inflow = uo.optDouble("inflow", 0.0);
@@ -144,7 +143,6 @@ public class DataManager {
                         users.add(new LocationUser(uid, username, numbOfTrans, inflow, outflow));
                     }
                 }
-
                 Location location = new Location(locId, identifier, address, lat, lng, users);
                 SimulatedTransaction t = new SimulatedTransaction(id, location, datetime);
                 transactions.addTransaction(t);
