@@ -3,6 +3,7 @@ package si.um.feri.maprri.raster;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.g3d.Environment;
 import com.badlogic.gdx.graphics.g3d.Model;
@@ -10,14 +11,14 @@ import com.badlogic.gdx.graphics.g3d.ModelBatch;
 import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.input.GestureDetector;
-import com.badlogic.gdx.math.MathUtils;
-import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.math.Vector3;
-
+import com.badlogic.gdx.math.*;
+import com.badlogic.gdx.math.collision.BoundingBox;
+import com.badlogic.gdx.math.collision.Ray;
 import org.json.JSONObject;
-
 import si.um.feri.maprri.raster.classes.*;
+import si.um.feri.maprri.raster.classes.graphics.ColumnMarker;
 import si.um.feri.maprri.raster.classes.graphics.ColumnMode;
 import si.um.feri.maprri.raster.config.Config;
 import si.um.feri.maprri.raster.manager.ColumnManager;
@@ -37,9 +38,11 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
     private Environment environment;
     private MqttUtil mqttUtil;
     private HttpUtil httpUtil;
-
+    private HudView hudView;
+    private float debugToggleCooldown = 0f;
+    private boolean debugMode = false;
     private Map map;
-
+    private boolean invertMouse = false;
     private Vector3 cameraPosition = new Vector3();
     private float cameraPitch = Config.INITIAL_PITCH;
     private float cameraYaw = 0f;
@@ -47,8 +50,9 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
 
     private DataManager dataManager;
     private ColumnManager columnManager;
-
+    private LocationScheduler locationScheduler;
     private float maxHeight = 200f;
+    private ShapeRenderer shapeRenderer;
 
     private final Geolocation MARKER_GEOLOCATION = new Geolocation(46.559070, 15.638100);
 
@@ -61,15 +65,15 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         httpUtil = new HttpUtil();
         dataManager = new DataManager();
         // TODO: Tule je demonstracija povezave, lahk si prilagodita se dodatne funkcije al pa backend ce je ka treba, js se ne vem ker pac vidva bota pol vidla kake podatke rabita
-        //dataManager.loadBaseData(HttpUtil.getBaseLocationData(),HttpUtil.getFamilyId());
-        dataManager.loadBaseData(testData.toString(), "685160a14f2c91b527966287");
+        dataManager.loadBaseData(HttpUtil.getBaseLocationData(),HttpUtil.getFamilyId());
+        //dataManager.loadBaseData(testData.toString(), "685160a14f2c91b527966287");
         environment = new Environment();
         environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.65f, 0.65f, 0.65f, 1f));
         environment.add(new DirectionalLight().set(0.8f, 0.8f, 0.8f, -0.5f, -1f, -0.3f));
 
-        dataManager.addMarker(new Marker(46.559070, 15.638100, map));
-        dataManager.addMarker(new Marker(46.560000, 15.640000, map));
-        dataManager.addMarker(new Marker(46.558000, 15.636000, map));
+//        dataManager.addMarker(new Marker(46.559070, 15.638100, map));
+//        dataManager.addMarker(new Marker(46.560000, 15.640000, map));
+//        dataManager.addMarker(new Marker(46.558000, 15.636000, map));
 
         columnManager = new ColumnManager(dataManager, map, maxHeight);
         columnManager.rebuild();
@@ -79,13 +83,18 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         int mapWidth = Config.NUM_TILES * MapRasterTiles.TILE_SIZE;
         int mapHeight = Config.NUM_TILES * MapRasterTiles.TILE_SIZE;
         cameraPosition.set(mapWidth / 2f, mapHeight / 2f, cameraDistance);
-
+        locationScheduler = new LocationScheduler(dataManager, columnManager);
         updateCamera();
 
         modelBatch = new ModelBatch();
+        hudView = new HudView();
+        hudView.create();
+        InputMultiplexer multiplexer = new InputMultiplexer();
+        multiplexer.addProcessor(hudView.getStage());
+        multiplexer.addProcessor(new GestureDetector(this));
+        Gdx.input.setInputProcessor(multiplexer);
 
-        // This is here so that the input works
-        Gdx.input.setInputProcessor(new GestureDetector(this));
+        shapeRenderer = new ShapeRenderer();
 
         initMqttListeners();
     }
@@ -93,7 +102,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
     @Override
     public void render() {
         float deltaTime = Gdx.graphics.getDeltaTime();
-
+        locationScheduler.processAllDue();
         handleInput(deltaTime);
         update(deltaTime);
         draw();
@@ -113,16 +122,23 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         for (ModelInstance tileInstance : map.tileInstances.values()) {
             modelBatch.render(tileInstance, environment);
         }
-        //dobimo markerje in jih narišemo
         List<Marker> markers = dataManager.getMarkers();
         for (Marker m : markers) {
             modelBatch.render(m.getInstance(), environment);
         }
-
         columnManager.render(modelBatch, environment);
 
         modelBatch.end();
+        shapeRenderer.setProjectionMatrix(perspectiveCamera.combined);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        if (debugMode){
+            columnManager.renderHitboxes(shapeRenderer);
+        }
+        shapeRenderer.end();
+
+        hudView.render();
     }
+
 
     private void updateCamera() {
         perspectiveCamera.near = 10f;
@@ -138,42 +154,75 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
             m.dispose();
         }
         map.dispose();
+        if (hudView != null) hudView.dispose();
     }
 
     @Override
     public boolean pan(float x, float y, float deltaX, float deltaY) {
+        float pitchDelta = invertMouse ? -deltaX : deltaX;
         cameraPitch -= deltaY * Config.CAMERA_MOUSE_PITCH_SPEED;
         cameraPitch = MathUtils.clamp(cameraPitch, Config.MIN_PITCH, Config.MAX_PITCH);
-        cameraYaw -= deltaX * Config.CAMERA_MOUSE_YAW;
+
+        cameraYaw -= pitchDelta * Config.CAMERA_MOUSE_YAW;
         cameraYaw = (cameraYaw + 360f) % 360f;
         return true;
     }
 
-    @Override public boolean touchDown(float x, float y, int pointer, int button) {
+    @Override
+    public boolean touchDown(float x, float y, int pointer, int button) {
         return false;
     }
-    @Override public boolean tap(float x, float y, int count, int button) {
+
+    @Override
+    public boolean tap(float x, float y, int count, int button) {
+        Ray pickRay = perspectiveCamera.getPickRay(x, y);
+        Vector3 intersection = new Vector3();
+        ColumnMarker hit = columnManager.getHitColumn(pickRay, intersection);
+        if (hit != null) {
+            JSONObject detailsJson = hit.getVisual().getLocation().toJson(); // Adjust this to get the correct JSON
+            hudView.showDetails(detailsJson);
+            return true;
+        }
         return false;
     }
-    @Override public boolean longPress(float x, float y) {
+
+    @Override
+    public boolean longPress(float x, float y) {
         return false;
     }
-    @Override public boolean fling(float velocityX, float velocityY, int button) {
+
+    @Override
+    public boolean fling(float velocityX, float velocityY, int button) {
         return false;
     }
-    @Override public boolean panStop(float x, float y, int pointer, int button) {
+
+    @Override
+    public boolean panStop(float x, float y, int pointer, int button) {
         return false;
     }
-    @Override public boolean pinch(Vector2 initialPointer1, Vector2 initialPointer2, Vector2 pointer1, Vector2 pointer2) {
+
+    @Override
+    public boolean pinch(Vector2 initialPointer1, Vector2 initialPointer2, Vector2 pointer1, Vector2 pointer2) {
         return false;
     }
-    @Override public void pinchStop() {}
+
+    @Override
+    public void pinchStop() {
+    }
 
     @Override
     public boolean zoom(float initialDistance, float distance) {
         cameraPosition.z *= (initialDistance / distance);
         cameraPosition.z = MathUtils.clamp(cameraPosition.z, 400, 3000);
         return true;
+    }
+
+    public void resize(int width, int height) {
+        perspectiveCamera.viewportWidth = width;
+        perspectiveCamera.viewportHeight = height;
+        perspectiveCamera.update();
+
+        if (hudView != null) hudView.resize(width, height);
     }
 
     private void handleInput(float delta) {
@@ -195,6 +244,17 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         cameraPosition.y += (cosYaw * moveF - sinYaw * moveR) * moveSpeed;
 //        cameraPosition.x = MathUtils.clamp(cameraPosition.x, 0, mapWidth);
 //        cameraPosition.y = MathUtils.clamp(cameraPosition.y, 0, mapHeight);
+
+        debugToggleCooldown = Math.max(0f, debugToggleCooldown - delta);
+        if (Gdx.input.isKeyPressed(Input.Keys.R)) {
+            if (debugToggleCooldown <= 0f) {
+                debugMode = !debugMode;
+                debugToggleCooldown = 0.5f;
+            }
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.I)) {
+            invertMouse = !invertMouse;
+        }
 
         if (Gdx.input.isKeyPressed(Input.Keys.E)) {
             cameraPosition.z += Config.CAMERA_Z_SPEED * delta;
@@ -234,6 +294,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
                 String message = new String(msg.getPayload());
                 System.out.println("Received MQTT message on topic " + topic + ": " + message);
                 dataManager.extractTransactionsFromSimulateJson(message);
+                locationScheduler.updateTransactions(dataManager.getTransactionsByType("simulate"));
             });
 
         } catch (Exception e) {

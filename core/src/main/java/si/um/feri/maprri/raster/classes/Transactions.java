@@ -30,7 +30,9 @@ public class Transactions {
     public List<SimulatedTransaction> getTransactions() {
         return Collections.unmodifiableList(simulatedTransactions);
     }
-
+    public List<SimulatedTransaction> internalList() {
+        return simulatedTransactions;
+    }
     public void setTransactions(List<SimulatedTransaction> simulatedTransactions) {
         this.simulatedTransactions.clear();
         if (simulatedTransactions != null) {
