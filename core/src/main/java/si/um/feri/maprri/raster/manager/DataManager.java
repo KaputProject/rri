@@ -129,6 +129,11 @@ public class DataManager {
                 String address = locObj.optString("address", "");
                 double lat = locObj.getDouble("lat");
                 double lng = locObj.getDouble("lng");
+                double total_inflow = locObj.getDouble("total_inflow");
+                double total_outflow = locObj.getDouble("total_outflow");
+                int numberOfTrans = locObj.getInt("numbOfTrans");
+
+
 
                 List<LocationUser> users = new ArrayList<>();
                 JSONArray usersArr = locObj.optJSONArray("users");
@@ -143,7 +148,8 @@ public class DataManager {
                         users.add(new LocationUser(uid, username, numbOfTrans, inflow, outflow));
                     }
                 }
-                Location location = new Location(locId, identifier, address, lat, lng, users);
+                Location location = new Location(locId, identifier, address, lat, lng, users, total_inflow, total_outflow, numberOfTrans);
+                //Location location = new Location(locId, identifier, address, lat, lng, users);
                 SimulatedTransaction t = new SimulatedTransaction(id, location, datetime);
                 transactions.addTransaction(t);
             }
@@ -287,6 +293,24 @@ public class DataManager {
             }
         }
         return max;
+    }
+    public Transactions getTransactionsByType(String type) {
+        for (Transactions t : allTransactions) {
+            if (t.getType().equals(type)) {
+                return t;
+            }
+        }
+        return null;
+    }
+    public void removeTransactionsByTypeAndId(String type, String id) {
+       Transactions transactionsOfInterest = getTransactionsByType(type);
+        List<SimulatedTransaction> txList = transactionsOfInterest.internalList();
+        for (SimulatedTransaction t : new ArrayList<>(txList)) {
+            if (t.getId().equals(id)) {
+                txList.remove(t);
+                break;
+            }
+        }
     }
 
 }

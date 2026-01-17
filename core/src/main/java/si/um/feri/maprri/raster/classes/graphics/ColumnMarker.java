@@ -34,10 +34,14 @@ public class ColumnMarker extends Marker {
         );
         applyColor();
     }
+    public void updateVisualValue(double value) {
+        visual.value = value;
+    }
 
-    private void applyColor() {
+    public void applyColor() {
         Color color;
         if (visual.mode == ColumnMode.COMBINED) {
+            System.out.println("Value: " + visual.value + "combined mode");
             color = visual.value >= 0
                 ? new Color(0.3f, 0.8f, 0.3f, 1f)
                 : new Color(0.8f, 0.3f, 0.3f, 1f);

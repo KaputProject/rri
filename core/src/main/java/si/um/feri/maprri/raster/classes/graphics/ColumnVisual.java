@@ -5,7 +5,7 @@ import si.um.feri.maprri.raster.classes.Location;
 public class ColumnVisual {
     private final Location location;
     public final String userId;
-    public final double value;
+    public double value;
     public final ColumnMode mode;
 
     public ColumnVisual(Location location, String userId, double value, ColumnMode mode) {

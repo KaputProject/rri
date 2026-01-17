@@ -8,11 +8,12 @@ import java.util.Objects;
 // A simulated transaction at a specific location and time (also location read form notification)
 public class SimulatedTransaction {
     private final Location location;
-    private final long datetime; // millis since epoch
-
+    private final long datetime;
+    private final String id;
     public SimulatedTransaction(String id, Location location, long datetime) {
         this.location = Objects.requireNonNull(location, "location");
         this.datetime = datetime;
+        this.id = id;
     }
 
 
@@ -25,6 +26,7 @@ public class SimulatedTransaction {
             .put("datetime", Instant.ofEpochMilli(datetime).toString())
             .put("location", location.toJson());
     }
+    public String getId() { return id; }
 
     @Override
     public boolean equals(Object o) {

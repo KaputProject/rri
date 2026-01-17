@@ -17,10 +17,7 @@ import com.badlogic.gdx.math.*;
 import com.badlogic.gdx.math.collision.BoundingBox;
 import com.badlogic.gdx.math.collision.Ray;
 import org.json.JSONObject;
-import si.um.feri.maprri.raster.classes.CustomPerspectiveCamera;
-import si.um.feri.maprri.raster.classes.HudView;
-import si.um.feri.maprri.raster.classes.Map;
-import si.um.feri.maprri.raster.classes.Marker;
+import si.um.feri.maprri.raster.classes.*;
 import si.um.feri.maprri.raster.classes.graphics.ColumnMarker;
 import si.um.feri.maprri.raster.classes.graphics.ColumnMode;
 import si.um.feri.maprri.raster.config.Config;
@@ -53,7 +50,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
 
     private DataManager dataManager;
     private ColumnManager columnManager;
-
+    private LocationScheduler locationScheduler;
     private float maxHeight = 200f;
     private ShapeRenderer shapeRenderer;
 
@@ -86,7 +83,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         int mapWidth = Config.NUM_TILES * MapRasterTiles.TILE_SIZE;
         int mapHeight = Config.NUM_TILES * MapRasterTiles.TILE_SIZE;
         cameraPosition.set(mapWidth / 2f, mapHeight / 2f, cameraDistance);
-
+        locationScheduler = new LocationScheduler(dataManager, columnManager);
         updateCamera();
 
         modelBatch = new ModelBatch();
@@ -105,7 +102,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
     @Override
     public void render() {
         float deltaTime = Gdx.graphics.getDeltaTime();
-
+        locationScheduler.processAllDue();
         handleInput(deltaTime);
         update(deltaTime);
         draw();
@@ -297,6 +294,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
                 String message = new String(msg.getPayload());
                 System.out.println("Received MQTT message on topic " + topic + ": " + message);
                 dataManager.extractTransactionsFromSimulateJson(message);
+                locationScheduler.updateTransactions(dataManager.getTransactionsByType("simulate"));
             });
 
         } catch (Exception e) {

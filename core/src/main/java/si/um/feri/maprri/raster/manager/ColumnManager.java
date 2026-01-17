@@ -8,6 +8,7 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.BoundingBox;
 import com.badlogic.gdx.math.collision.Ray;
+import si.um.feri.maprri.raster.classes.Location;
 import si.um.feri.maprri.raster.classes.Map;
 import si.um.feri.maprri.raster.classes.graphics.*;
 
@@ -45,6 +46,7 @@ public class ColumnManager {
         for (ColumnVisual visual : visuals) {
             String key = visual.getLocationId() + "_" + visual.userId + "_" + currentMode;
 
+
             ColumnMarker marker = columns.get(key);
             if (marker == null) {
                 marker = new ColumnMarker(visual, map);
@@ -52,6 +54,9 @@ public class ColumnManager {
             }
 
             float height = scaler.scale(visual.value);
+
+            marker.updateVisualValue(visual.value);
+            marker.applyColor();
             marker.setTargetHeight(height);
             marker.show();
         }
@@ -142,5 +147,14 @@ public class ColumnManager {
             }
         }
         return null;
+    }
+    public ColumnMarker getMarkerByLoc(Location loc) {
+        for (ColumnMarker cm : columns.values()) {
+          if(cm.getVisual().getLocation().equals(loc)) {
+                return cm;
+          }
+        }
+        return null;
+
     }
 }
