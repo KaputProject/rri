@@ -13,8 +13,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
-import org.json.JSONArray;
-import org.json.JSONObject;
+import si.um.feri.maprri.raster.manager.DataManager;
 
 public class HudView {
     private Stage stage;
@@ -24,7 +23,13 @@ public class HudView {
     private Container<Table> detailsContainer;
     private Pixmap pixmap;
     private FreeTypeFontGenerator fontGenerator;
+    private Label familyModeLabel;
+    private boolean familyMode = true;
+    private DataManager dataManager;
 
+    public HudView(DataManager dataManager) {
+        this.dataManager = dataManager;
+    }
 
     public void create() {
         stage = new Stage(new ScreenViewport());
@@ -37,13 +42,32 @@ public class HudView {
         pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
         pixmap.setColor(0.2f, 0.2f, 0.2f, 0.8f);
         pixmap.fill();
+        familyModeLabel = new Label("FAMILY MODE: ON", labelStyle);
+        showFamilyLabel();
         showControls();
     }
 
     public Stage getStage() {
         return stage;
     }
-
+    public void setFamilyMode(boolean on) {
+        familyMode = on;
+        if (familyModeLabel != null) {
+            familyModeLabel.setText("FAMILY MODE: " + (on ? "ON" : "OFF"));
+        }
+    }
+    public void showFamilyLabel() {
+        TextureRegionDrawable grayBg = new TextureRegionDrawable(new Texture(pixmap));
+        Table topCenterTable = new Table();
+        topCenterTable.top();
+        topCenterTable.setBackground(grayBg);
+        topCenterTable.add(familyModeLabel).padTop(10).center();
+        topCenterTable.setFillParent(false);
+        topCenterTable.setWidth(Gdx.graphics.getWidth());
+        topCenterTable.setHeight(familyModeLabel.getHeight() + 20);
+        topCenterTable.setPosition(0, Gdx.graphics.getHeight() - topCenterTable.getHeight());
+        stage.addActor(topCenterTable);
+    }
     public void showControls() {
         TextureRegionDrawable grayBg = new TextureRegionDrawable(new Texture(pixmap));
         Table table = new Table();
@@ -62,6 +86,7 @@ public class HudView {
             "Tap                 - Select / interact",
             "R        - Debug mode",
             "I    - Inverse mouse controls (x axis)",
+            "F   - Show Whole family data",
         };
 
         for (String line : lines) {
@@ -76,7 +101,8 @@ public class HudView {
         stage.addActor(root);
     }
 
-    public void showDetails(JSONObject json) {
+
+    public void showDetails(Location location) {
         if (detailsContainer != null) {
             detailsContainer.remove();
         }
@@ -86,27 +112,38 @@ public class HudView {
         detailsTable.setBackground(grayBg);
         detailsTable.pad(10);
 
-        // Format and add data
         detailsTable.add(new Label("Details:", labelStyle)).left().pad(2).row();
-        detailsTable.add(new Label("Name: " + json.optString("identifier"), labelStyle)).left().pad(2).row();
-        detailsTable.add(new Label("Address: " + json.optString("address"), labelStyle)).left().pad(2).row();
-        detailsTable.add(new Label("Transactions: " + json.optInt("number_of_transactions"), labelStyle)).left().pad(2).row();
-        detailsTable.add(new Label("Inflow: " + String.format("%.2f", json.optDouble("total_inflow")), labelStyle)).left().pad(2).row();
-        detailsTable.add(new Label("Outflow: " + String.format("%.2f", json.optDouble("total_outflow")), labelStyle)).left().pad(2).row();
+        detailsTable.add(new Label("Name: " + location.getIdentifier(), labelStyle)).left().pad(2).row();
+        detailsTable.add(new Label("Address: " + location.getAddress(), labelStyle)).left().pad(2).row();
+        detailsTable.add(new Label("Transactions: " + location.getNumberOfTrans(), labelStyle)).left().pad(2).row();
+        detailsTable.add(new Label("Inflow: " + String.format("%.2f", location.getTotal_inflow()), labelStyle)).left().pad(2).row();
+        detailsTable.add(new Label("Outflow: " + String.format("%.2f", location.getTotal_outflow()), labelStyle)).left().pad(2).row();
 
-        JSONArray users = json.optJSONArray("users");
-        if (users != null && users.length() > 0) {
-            detailsTable.add(new Label("Users:", labelStyle)).left().pad(2).row();
-            for (int i = 0; i < users.length(); i++) {
-                JSONObject user = users.getJSONObject(i);
+        detailsTable.add(new Label("Users:", labelStyle)).left().pad(2).row();
+        if (familyMode) {
+            for (LocationUser user : location.getUsers()) {
                 String userInfo = String.format(
-                    "%s: %d trans, inflow %.2f, outflow %.2f",
-                    user.optString("username"),
-                    user.optInt("numbOftrans"),
-                    user.optDouble("inflow"),
-                    user.optDouble("outflow")
+                        "%s: %d trans, inflow %.2f, outflow %.2f",
+                        user.getUsername(),
+                        user.getNumbOftrans(),
+                        user.getInflow(),
+                        user.getOutflow()
                 );
                 detailsTable.add(new Label(userInfo, labelStyle)).left().pad(2).row();
+            }
+        } else {
+            String mainUserId = !dataManager.mainUser.isEmpty() ? dataManager.mainUser.get(0).getId() : null;
+            for (LocationUser user : location.getUsers()) {
+                if (user.getId().equals(mainUserId)) {
+                    String userInfo = String.format(
+                            "%s: %d trans, inflow %.2f, outflow %.2f",
+                            user.getUsername(),
+                            user.getNumbOftrans(),
+                            user.getInflow(),
+                            user.getOutflow()
+                    );
+                    detailsTable.add(new Label(userInfo, labelStyle)).left().pad(2).row();
+                }
             }
         }
 

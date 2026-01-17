@@ -46,20 +46,22 @@ public class ColumnMarker extends Marker {
     }
     public void applyColor() {
         Color color;
-        if (visual.mode == ColumnMode.COMBINED) {
-            color = visual.value >= 0
-                ? new Color(0.3f, 0.8f, 0.3f, 1f)
-                : new Color(0.8f, 0.3f, 0.3f, 1f);
-        } else if (visual.mode == ColumnMode.INFLOW) {
-            color = new Color(0.3f, 0.8f, 0.3f, 1f);
+        if (visual.userId != null && visual.mode != null) {
+            if (visual.mode == ColumnMode.INFLOW) {
+                color = new Color(0.3f, 0.8f, 0.3f, 1f); // green
+            } else if (visual.mode == ColumnMode.OUTFLOW) {
+                color = new Color(0.8f, 0.3f, 0.3f, 1f); // red
+            } else if (visual.mode == ColumnMode.COMBINED) {
+                color = visual.value >= 0
+                    ? new Color(0.3f, 0.8f, 0.3f, 1f)
+                    : new Color(0.8f, 0.3f, 0.3f, 1f);
+            } else {
+                color = new Color(0.5f, 0.5f, 0.5f, 1f); // fallback
+            }
         } else {
-            color = new Color(0.8f, 0.3f, 0.3f, 1f);
+            // fallback for family mode
+            color = new Color(0.5f, 0.5f, 0.5f, 1f);
         }
-
-        if (visual.userId != null) {
-            color = UserColorRegistry.getColor(visual.userId);
-        }
-
         if (markerInstance != null && !markerInstance.materials.isEmpty()) {
             markerInstance.materials.get(0).set(ColorAttribute.createDiffuse(color));
         }
