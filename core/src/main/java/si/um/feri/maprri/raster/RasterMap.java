@@ -47,12 +47,12 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
     private float cameraPitch = Config.INITIAL_PITCH;
     private float cameraYaw = 0f;
     private float cameraDistance = Config.CAMERA_Z_INITIAL;
-
     private DataManager dataManager;
     private ColumnManager columnManager;
     private LocationScheduler locationScheduler;
     private float maxHeight = 200f;
     private ShapeRenderer shapeRenderer;
+    private static boolean familyView = false;
 
     private final Geolocation MARKER_GEOLOCATION = new Geolocation(46.559070, 15.638100);
 
@@ -87,7 +87,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         updateCamera();
 
         modelBatch = new ModelBatch();
-        hudView = new HudView();
+        hudView = new HudView(dataManager);
         hudView.create();
         InputMultiplexer multiplexer = new InputMultiplexer();
         multiplexer.addProcessor(hudView.getStage());
@@ -179,8 +179,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         Vector3 intersection = new Vector3();
         ColumnMarker hit = columnManager.getHitColumn(pickRay, intersection);
         if (hit != null) {
-            JSONObject detailsJson = hit.getVisual().getLocation().toJson(); // Adjust this to get the correct JSON
-            hudView.showDetails(detailsJson);
+            hudView.showDetails(hit.getVisual().getLocation());
             return true;
         }
         return false;
@@ -255,6 +254,11 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         if (Gdx.input.isKeyJustPressed(Input.Keys.I)) {
             invertMouse = !invertMouse;
         }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F)) {
+            familyView = !familyView;
+            hudView.setFamilyMode(familyView);
+            updateColumnFilter();
+        }
 
         if (Gdx.input.isKeyPressed(Input.Keys.E)) {
             cameraPosition.z += Config.CAMERA_Z_SPEED * delta;
@@ -297,11 +301,23 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
                 locationScheduler.updateTransactions(dataManager.getTransactionsByType("simulate"));
             });
 
+
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-
+    private void updateColumnFilter() {
+        if (familyView) {
+            columnManager.setUserId(null); // family view
+        } else {
+            if (!dataManager.mainUser.isEmpty()) {
+                columnManager.setUserId(dataManager.mainUser.get(0).getId());
+            }
+        }
+    }
+    public static boolean isFamilyView() {
+        return familyView;
+    }
     // Za spremembo filtra (npr. iz UI)
     public void onFilterChanged(ColumnMode mode, String userId) {
         columnManager.setMode(mode);

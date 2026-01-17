@@ -7,7 +7,6 @@ import si.um.feri.maprri.raster.classes.graphics.ColumnMode;
 import si.um.feri.maprri.raster.classes.graphics.ColumnVisual;
 import si.um.feri.maprri.raster.utils.markerUtil;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,7 +14,8 @@ public class DataManager {
     public final List<Transactions> allTransactions = new ArrayList<>();
     public final List<Location> BaseLocations = new ArrayList<>();
     public final List<Marker> markers = new ArrayList<>();
-    public final List<FamilyMember> FamilyMembers = new ArrayList<>();
+    public final List<Person> family = new ArrayList<>();
+    public final List<Person> mainUser = new ArrayList<>();
 
     public void addTransactions(Transactions transactions) {
         if (allTransactions.isEmpty()) {
@@ -40,10 +40,16 @@ public class DataManager {
                 JSONObject data = new JSONObject(BaseData);
                 JSONArray familyMembers = data.getJSONArray("familyMembers");
                 for (int i = 0; i < familyMembers.length(); i++) {
+                    if(i == 0){
+                        JSONObject user = familyMembers.getJSONObject(i);
+                        String userId = user.getString("_id");
+                        String userName = user.optString("username", "");
+                        this.mainUser.add(new Person(userId, userName));
+                    }
                     JSONObject member = familyMembers.getJSONObject(i);
                     String memberId = member.getString("_id");
                     String memberName = member.optString("name", "");
-                    FamilyMembers.add(new FamilyMember(memberId, memberName));
+                    family.add(new Person(memberId, memberName));
                 }
                 JSONArray Locations = data.getJSONArray("statistics");
                 for (int i = 0; i < Locations.length(); i++) {
@@ -77,8 +83,8 @@ public class DataManager {
                 System.out.println("Base Data: " + BaseData);
                 JSONObject data = new JSONObject(BaseData);
                 JSONObject user = data.getJSONObject("user");
-                FamilyMember familyMember = new FamilyMember(user.getString("_id"), user.getString("username"));
-                FamilyMembers.add(familyMember);
+                Person person = new Person(user.getString("_id"), user.getString("username"));
+                this.mainUser.add(person);
                 JSONArray Locations = user.getJSONArray("locations");
                 for (int i = 0; i < Locations.length(); i++) {
                     JSONObject s = Locations.getJSONObject(i);
@@ -198,53 +204,48 @@ public class DataManager {
 
     public List<ColumnVisual> getColumnVisuals(ColumnMode mode, String userId) {
         List<ColumnVisual> result = new ArrayList<>();
-
-        for (Location loc : BaseLocations) {
-            if (userId == null) {
-                // Family view - agregirani podatki za lokacijo
-                double value;
-                switch (mode) {
-                    case INFLOW:
-                        value = loc.getTotal_inflow();
-                        break;
-                    case OUTFLOW:
-                        value = loc.getTotal_outflow();
-                        break;
-                    case COMBINED:
-                        value = loc.getTotal_inflow() - loc.getTotal_outflow();
-                        break;
-                    default:
-                        value = 0.0;
-                        break;
+        if (userId == null) {
+            // FAMILY VIEW: For each location, for each family member, add a column if they have data
+            for (Location loc : BaseLocations) {
+                for (Person member : family) {
+                    LocationUser u = loc.getUser(member.getId());
+                    if (u == null) continue;
+                    double value;
+                    switch (mode) {
+                        case INFLOW: value = u.getInflow(); break;
+                        case OUTFLOW: value = u.getOutflow(); break;
+                        case COMBINED: value = u.getInflow() - u.getOutflow(); break;
+                        default: value = 0.0; break;
+                    }
+                    // Only add if the value is significant
+                    if (Math.abs(value) > 0.001) {
+                        result.add(new ColumnVisual(loc, member.getId(), value, mode));
+                    }
                 }
-
-                if (Math.abs(value) > 0.001) {
-                    result.add(new ColumnVisual(loc, null, value, mode));
-                }
-            } else {
-                // Personal view - podatki za konkretnega uporabnika
+            }
+        } else {
+            // USER VIEW: Only show the main user's column per location
+            for (Location loc : BaseLocations) {
                 LocationUser u = loc.getUser(userId);
                 if (u == null) continue;
+                double inflow = u.getInflow();
+                double outflow = u.getOutflow();
+                double value = 0.0;
+                ColumnMode colMode = mode;
 
-                double value;
-                switch (mode) {
-                    case INFLOW:
-                        value = u.getInflow();
-                        break;
-                    case OUTFLOW:
-                        value = u.getOutflow();
-                        break;
-                    case COMBINED:
-                        value = u.getInflow() - u.getOutflow();
-                        break;
-                    default:
-                        value = 0.0;
-                        break;
+                if (inflow > 0 && outflow == 0) {
+                    value = inflow;
+                    colMode = ColumnMode.INFLOW;
+                } else if (outflow > 0 && inflow == 0) {
+                    value = -outflow;
+                    colMode = ColumnMode.OUTFLOW;
+                } else if (inflow > 0 && outflow > 0) {
+                    value = inflow - outflow;
+                    colMode = ColumnMode.COMBINED;
+                } else {
+                    continue; // skip if both are zero
                 }
-
-                if (Math.abs(value) > 0.001) {
-                    result.add(new ColumnVisual(loc, userId, value, mode));
-                }
+                result.add(new ColumnVisual(loc, userId, value, colMode));
             }
         }
         return result;

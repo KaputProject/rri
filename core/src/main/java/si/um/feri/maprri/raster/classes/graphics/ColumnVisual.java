@@ -1,5 +1,6 @@
 package si.um.feri.maprri.raster.classes.graphics;
 
+import org.json.JSONObject;
 import si.um.feri.maprri.raster.classes.Location;
 
 public class ColumnVisual {

@@ -6,6 +6,7 @@ import com.badlogic.gdx.math.Vector2;
 
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.BoundingBox;
+import si.um.feri.maprri.raster.RasterMap;
 import si.um.feri.maprri.raster.classes.Map;
 import si.um.feri.maprri.raster.classes.Marker;
 import si.um.feri.maprri.raster.utils.MapRasterTiles;
@@ -19,6 +20,8 @@ public class ColumnMarker extends Marker {
     private boolean visible = true;
     private Vector2 pixelPosition;
     private BoundingBox hitbox = new BoundingBox();
+    public float offsetX = 0;
+    public float offsetY = 0;
 
     public ColumnMarker(ColumnVisual visual, Map map) {
         super(visual.getLat(), visual.getLng(), map);
@@ -32,33 +35,42 @@ public class ColumnMarker extends Marker {
             map.beginTile.x,
             map.beginTile.y
         );
-        applyColor();
+        applyColor(RasterMap.isFamilyView());
     }
     public void updateVisualValue(double value) {
         visual.value = value;
     }
 
-    public void applyColor() {
+    public void setRenderOffset(float dx, float dy) {
+        this.offsetX = dx;
+        this.offsetY = dy;
+    }
+    public void applyColor(boolean familyView) {
         Color color;
-        if (visual.mode == ColumnMode.COMBINED) {
-            System.out.println("Value: " + visual.value + "combined mode");
-            color = visual.value >= 0
-                ? new Color(0.3f, 0.8f, 0.3f, 1f)
-                : new Color(0.8f, 0.3f, 0.3f, 1f);
-        } else if (visual.mode == ColumnMode.INFLOW) {
-            color = new Color(0.3f, 0.8f, 0.3f, 1f);
-        } else {
-            color = new Color(0.8f, 0.3f, 0.3f, 1f);
-        }
-
-        if (visual.userId != null) {
+        if (familyView && visual.userId != null) {
+            // Use unique color for each user in family view
             color = UserColorRegistry.getColor(visual.userId);
+        } else if (visual.mode != null) {
+            // fallback for mode-based coloring
+            if (visual.mode == ColumnMode.INFLOW) {
+                color = new Color(0.3f, 0.8f, 0.3f, 1f); // green
+            } else if (visual.mode == ColumnMode.OUTFLOW) {
+                color = new Color(0.8f, 0.3f, 0.3f, 1f); // red
+            } else if (visual.mode == ColumnMode.COMBINED) {
+                color = visual.value >= 0
+                    ? new Color(0.3f, 0.8f, 0.3f, 1f)
+                    : new Color(0.8f, 0.3f, 0.3f, 1f);
+            } else {
+                color = new Color(0.5f, 0.5f, 0.5f, 1f); // fallback
+            }
+        } else {
+            color = new Color(0.5f, 0.5f, 0.5f, 1f);
         }
-
         if (markerInstance != null && !markerInstance.materials.isEmpty()) {
             markerInstance.materials.get(0).set(ColorAttribute.createDiffuse(color));
         }
     }
+
 
     public void setTargetHeight(float height) {
         this.targetHeight = height;
@@ -92,7 +104,11 @@ public class ColumnMarker extends Marker {
             // Resetiraj transformacijo in nastavi pozicijo ter skaliranje
             markerInstance.transform.idt();
             // Pozicija: stolpec na X,Y, dvignjen za polovico višine da je dno na Z=0
-            markerInstance.transform.setToTranslation(pixelPosition.x, pixelPosition.y, safeHeight / 2f);
+            markerInstance.transform.setToTranslation(
+                pixelPosition.x + offsetX,
+                pixelPosition.y + offsetY,
+                safeHeight / 2f
+            );
             markerInstance.transform.scale(1f, 1f, scaleZ);
         }
     }
@@ -133,8 +149,8 @@ public class ColumnMarker extends Marker {
         float radius = getHitboxRadius();
         float size = radius * 2f;
         float half = size / 2f;
-        float minX = pos.x - half, maxX = pos.x + half;
-        float minY = pos.y - half, maxY = pos.y + half;
+        float minX = pos.x + offsetX - half, maxX = pos.x + offsetX + half;
+        float minY = pos.y + offsetY - half, maxY = pos.y + offsetY + half;
         float bottomZ = 0f, topZ = getCurrentHeight();
         return new BoundingBox(new Vector3(minX, minY, bottomZ), new Vector3(maxX, maxY, topZ));
     }
