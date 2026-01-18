@@ -13,7 +13,12 @@ import com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
+import si.um.feri.maprri.raster.actors.PieChartActor;
+import si.um.feri.maprri.raster.classes.graphics.UserColorRegistry;
 import si.um.feri.maprri.raster.manager.DataManager;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class HudView {
     private Stage stage;
@@ -26,7 +31,9 @@ public class HudView {
     private Label familyModeLabel;
     private boolean familyMode = true;
     private DataManager dataManager;
-
+    Color inflowColor = new Color(0.3f, 0.8f, 0.3f, 1f); // green
+    Color outflowColor = new Color(0.8f, 0.3f, 0.3f, 1f); // red
+    List<Color> colors = new ArrayList<>();
     public HudView(DataManager dataManager) {
         this.dataManager = dataManager;
     }
@@ -43,6 +50,8 @@ public class HudView {
         pixmap.setColor(0.2f, 0.2f, 0.2f, 0.8f);
         pixmap.fill();
         familyModeLabel = new Label("FAMILY MODE: OFF", labelStyle);
+
+
         showFamilyLabel();
         showControls();
     }
@@ -50,12 +59,14 @@ public class HudView {
     public Stage getStage() {
         return stage;
     }
+
     public void setFamilyMode(boolean on) {
         familyMode = on;
         if (familyModeLabel != null) {
             familyModeLabel.setText("FAMILY MODE: " + (on ? "ON" : "OFF"));
         }
     }
+
     public void showFamilyLabel() {
         TextureRegionDrawable grayBg = new TextureRegionDrawable(new Texture(pixmap));
         Table topCenterTable = new Table();
@@ -68,6 +79,7 @@ public class HudView {
         topCenterTable.setPosition(0, Gdx.graphics.getHeight() - topCenterTable.getHeight());
         stage.addActor(topCenterTable);
     }
+
     public void showControls() {
         TextureRegionDrawable grayBg = new TextureRegionDrawable(new Texture(pixmap));
         Table table = new Table();
@@ -76,18 +88,7 @@ public class HudView {
 
         table.pad(10);
 
-        String[] lines = {
-            "Controls:",
-            "W / S / A / D  - Move map",
-            "Q / E            - Zoom in/out",
-            "Arrow keys      - Pitch / Yaw",
-            "Mouse drag       - Rotate camera",
-            "Pinch / Scroll  - Zoom",
-            "Tap                 - Select / interact",
-            "R        - Debug mode",
-            "I    - Inverse mouse controls (x axis)",
-            "F   - Show Whole family data",
-        };
+        String[] lines = {"Controls:", "W / S / A / D  - Move map", "Q / E            - Zoom in/out", "Arrow keys      - Pitch / Yaw", "Mouse drag       - Rotate camera", "Pinch / Scroll  - Zoom", "Tap                 - Select / interact", "R        - Debug mode", "I    - Inverse mouse controls (x axis)", "F   - Show Whole family data",};
 
         for (String line : lines) {
             Label label = new Label(line, labelStyle);
@@ -102,51 +103,122 @@ public class HudView {
     }
 
 
-    public void showDetails(Location location) {
+    public void showDetailsForUser(Location location, String userId) {
+        System.out.println("Show details for user " + userId + " at location " + location);
+
         if (detailsContainer != null) {
             detailsContainer.remove();
         }
+
         detailsTable = new Table();
         detailsTable.top().right();
+
         TextureRegionDrawable grayBg = new TextureRegionDrawable(new Texture(pixmap));
         detailsTable.setBackground(grayBg);
         detailsTable.pad(10);
 
-        detailsTable.add(new Label("Details:", labelStyle)).left().pad(2).row();
-        detailsTable.add(new Label("Name: " + location.getIdentifier(), labelStyle)).left().pad(2).row();
-        detailsTable.add(new Label("Address: " + location.getAddress(), labelStyle)).left().pad(2).row();
-        detailsTable.add(new Label("Transactions: " + location.getNumberOfTrans(), labelStyle)).left().pad(2).row();
-        detailsTable.add(new Label("Inflow: " + String.format("%.2f", location.getTotal_inflow()), labelStyle)).left().pad(2).row();
-        detailsTable.add(new Label("Outflow: " + String.format("%.2f", location.getTotal_outflow()), labelStyle)).left().pad(2).row();
+        // Header
+        detailsTable.add(new Label("details", labelStyle)).center().padBottom(6).row();
+        detailsTable.add(new Label("Location: " + location.getIdentifier(), labelStyle)).left().row();
+        detailsTable.add(new Label("Address: " + location.getAddress(), labelStyle)).left().padBottom(8).row();
 
-        detailsTable.add(new Label("Users:", labelStyle)).left().pad(2).row();
-        if (familyMode) {
-            for (LocationUser user : location.getUsers()) {
-                String userInfo = String.format(
-                        "%s: %d trans, inflow %.2f, outflow %.2f",
-                        user.getUsername(),
-                        user.getNumbOftrans(),
-                        user.getInflow(),
-                        user.getOutflow()
-                );
-                detailsTable.add(new Label(userInfo, labelStyle)).left().pad(2).row();
-            }
-        } else {
-            String mainUserId = !dataManager.mainUser.isEmpty() ? dataManager.mainUser.get(0).getId() : null;
-            for (LocationUser user : location.getUsers()) {
-                if (user.getId().equals(mainUserId)) {
-                    String userInfo = String.format(
-                            "%s: %d trans, inflow %.2f, outflow %.2f",
-                            user.getUsername(),
-                            user.getNumbOftrans(),
-                            user.getInflow(),
-                            user.getOutflow()
-                    );
-                    detailsTable.add(new Label(userInfo, labelStyle)).left().pad(2).row();
+        for (LocationUser user : location.getUsers()) {
+            if (user.getId().equals(userId)) {
+
+                Color userColor = UserColorRegistry.getColor(user.getId());
+
+                Label userName = new Label(user.getUsername() + ": ", labelStyle);
+                userName.setColor(userColor);
+                detailsTable.add(userName).left().padBottom(6).row();
+
+                detailsTable.add(new Label("Transactions: " + user.getNumbOftrans(), labelStyle)).left().row();
+
+                Label inflow = new Label("Inflow: + " + String.format("%.2f", user.getInflow()), labelStyle);
+                inflow.setColor(inflowColor);
+                detailsTable.add(inflow).left().row();
+
+                Label outflow = new Label("Outflow: - " + String.format("%.2f", user.getOutflow()), labelStyle);
+                outflow.setColor(outflowColor);
+                detailsTable.add(outflow).left().row();
+
+                List<Float> values = new ArrayList<>();
+                values.add((float) user.getInflow());
+                values.add((float) user.getOutflow());
+                List<Color> colors = new ArrayList<>();
+                colors.add(inflowColor);
+                colors.add(outflowColor);
+
+                if (user.getInflow() != 0f || user.getOutflow() != 0f) {
+                    detailsTable.add(new Label("Inflow vs Outflow:", labelStyle)).left().padTop(8).padBottom(2).row();
+                    PieChartActor pieChart = new PieChartActor(values, colors);
+                    detailsTable.add(pieChart).center().padBottom(10).row();
                 }
+
+                break;
             }
         }
 
+        detailsContainer = new Container<>(detailsTable);
+        detailsContainer.top().right().pad(10);
+        detailsContainer.setFillParent(true);
+
+        stage.addActor(detailsContainer);
+    }
+
+    public void showDetailsForFamily(Location location) {
+        System.out.println("Show details for family " + location.getIdentifier());
+
+        if (detailsContainer != null) {
+            detailsContainer.remove();
+        }
+
+        detailsTable = new Table();
+        detailsTable.top().right();
+
+        TextureRegionDrawable grayBg = new TextureRegionDrawable(new Texture(pixmap));
+        detailsTable.setBackground(grayBg);
+        detailsTable.pad(10);
+
+        // Header
+        detailsTable.add(new Label("Family details", labelStyle)).left().padBottom(6).row();
+        detailsTable.add(new Label("Location: " + location.getIdentifier(), labelStyle)).left().row();
+        detailsTable.add(new Label("Address: " + location.getAddress(), labelStyle)).left().padBottom(6).row();
+
+        detailsTable.add(new Label("Transactions: " + location.getNumberOfTrans(), labelStyle)).left().row();
+
+        Label totalInflow = new Label("Total inflow: + " + String.format("%.2f", location.getTotal_inflow()), labelStyle);
+        totalInflow.setColor(inflowColor);
+        detailsTable.add(totalInflow).left().row();
+
+        Label totalOutflow = new Label("Total outflow: - " + String.format("%.2f", location.getTotal_outflow()), labelStyle);
+        totalOutflow.setColor(outflowColor);
+        detailsTable.add(totalOutflow).left().padBottom(8).row();
+        detailsTable.add(new Label("Family Members:", labelStyle)).left().padBottom(4).row();
+
+        for (LocationUser user : location.getUsers()) {
+            Color userColor = UserColorRegistry.getColor(user.getId());
+            Label userInfo = new Label(String.format("%s: %d trans | +%.2f | -%.2f", user.getUsername(), user.getNumbOftrans(), user.getInflow(), user.getOutflow()), labelStyle);
+            userInfo.setColor(userColor);
+            detailsTable.add(userInfo).left().padBottom(6).row();
+        }
+        List<Float> inflows = new ArrayList<>();
+        List<Float> outflows = new ArrayList<>();
+        List<Color> colors = new ArrayList<>();
+        for (LocationUser user : location.getUsers()) {
+            inflows.add((float) user.getInflow());
+            outflows.add((float) user.getOutflow());
+            colors.add(UserColorRegistry.getColor(user.getId()));
+        }
+        if (!inflows.isEmpty() && inflows.stream().anyMatch(f -> f != 0f)) {
+            detailsTable.add(new Label("Income (Inflow):", labelStyle)).left().padBottom(2).row();
+            PieChartActor inflowPie = new PieChartActor(inflows, colors);
+            detailsTable.add(inflowPie).center().padBottom(10).row();
+        }
+        if (!outflows.isEmpty() && outflows.stream().anyMatch(f -> f != 0f)) {
+            detailsTable.add(new Label("Expenses (Outflow):", labelStyle)).left().padBottom(2).row();
+            PieChartActor outflowPie = new PieChartActor(outflows, colors);
+            detailsTable.add(outflowPie).center().padBottom(10).row();
+        }
         detailsContainer = new Container<>(detailsTable);
         detailsContainer.top().right().pad(10);
         detailsContainer.setFillParent(true);
@@ -174,4 +246,12 @@ public class HudView {
         if (fontGenerator != null) fontGenerator.dispose();
         pixmap.dispose();
     }
+
+    private Label coloredLabel(String text, Color color) {
+        Label label = new Label(text, labelStyle);
+        label.setColor(color);
+        return label;
+    }
+
+
 }
