@@ -28,13 +28,19 @@ public class ColumnMarker extends Marker {
         this.visual = visual;
         this.map = map;
         this.targetHeight = 0f;
-        // Izračunaj pixel pozicijo iz lat/lng
+
+        // Compute pixel position in the same coordinate system as Map tile instances.
+        int mapHeight = si.um.feri.maprri.raster.config.Config.NUM_TILES * MapRasterTiles.TILE_SIZE;
         this.pixelPosition = MapRasterTiles.getPixelPosition(
             visual.getLat(),
             visual.getLng(),
+            MapRasterTiles.TILE_SIZE,
+            si.um.feri.maprri.raster.config.Config.ZOOM,
             map.beginTile.x,
-            map.beginTile.y
+            map.beginTile.y,
+            mapHeight
         );
+
         applyColor(RasterMap.isFamilyView());
     }
     public void updateVisualValue(double value) {
@@ -121,6 +127,10 @@ public class ColumnMarker extends Marker {
         visible = false;
     }
 
+    public boolean isVisible() {
+        return visible;
+    }
+
     public boolean isHidden() {
         return !visible && currentHeight < 0.01f;
     }
@@ -146,14 +156,23 @@ public class ColumnMarker extends Marker {
     @Override
     public BoundingBox getHitboxBoundingBox() {
         Vector2 pos = getPixelPosition();
-        float radius = getHitboxRadius();
+
+        // Make picking a bit more forgiving than the physical 20x20 base.
+        float padding = 6f;
+
+        float radius = getHitboxRadius() + padding;
         float size = radius * 2f;
         float half = size / 2f;
+
         float minX = pos.x + offsetX - half, maxX = pos.x + offsetX + half;
         float minY = pos.y + offsetY - half, maxY = pos.y + offsetY + half;
-        float bottomZ = 0f, topZ = getCurrentHeight();
+        float bottomZ = 0f;
+
+        // Use the larger of current/target height so the top is clickable during animation.
+        float topZ = Math.max(getCurrentHeight(), getTargetHeight());
+        topZ = Math.max(topZ, 1f);
+
         return new BoundingBox(new Vector3(minX, minY, bottomZ), new Vector3(maxX, maxY, topZ));
     }
 
 }
-

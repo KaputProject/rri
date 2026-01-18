@@ -1,22 +1,23 @@
 package si.um.feri.maprri.raster.manager;
 
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Camera;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.g3d.Environment;
 import com.badlogic.gdx.graphics.g3d.ModelBatch;
-import com.badlogic.gdx.graphics.Camera;
-
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.BoundingBox;
 import com.badlogic.gdx.math.collision.Ray;
-import si.um.feri.maprri.raster.RasterMap;
 import si.um.feri.maprri.raster.classes.Location;
 import si.um.feri.maprri.raster.classes.Map;
 import si.um.feri.maprri.raster.classes.graphics.*;
 
 import java.util.*;
-
-import static si.um.feri.maprri.raster.RasterMap.isFamilyView;
 
 public class ColumnManager {
 
@@ -26,14 +27,35 @@ public class ColumnManager {
     private final HeightScaler scaler;
     private ColumnMode currentMode = ColumnMode.COMBINED;
     private String currentUserId = null; // null = family view
+    private float minAmount = 0f; // minimum amount filter
     private static final float MARKER_SIZE = 20f;
-    private static final float GAP = 2f; // minimalna razdalja, da se ne dotikajo
-    private static final float CELL = MARKER_SIZE + GAP;
+    private static final float GAP = 0f; // gap inside group (0 = touching)
+
+    // Location labels (billboard text above column groups)
+    private final java.util.Map<String, LocationLabel> locationLabels = new HashMap<>();
+    private BitmapFont labelFont;
+    private SpriteBatch labelBatch;
+    private static final float LABEL_HEIGHT_OFFSET = 10f; // Height above tallest column
 
     public ColumnManager(DataManager dataManager, Map map, float maxHeight) {
         this.dataManager = dataManager;
         this.map = map;
         this.scaler = new HeightScaler(1000, maxHeight);
+
+        // Initialize font for location labels
+        FreeTypeFontGenerator generator = new FreeTypeFontGenerator(
+            Gdx.files.internal("core/fonts/Roboto/static/Roboto-Regular.ttf")
+        );
+        FreeTypeFontGenerator.FreeTypeFontParameter parameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
+        parameter.size = 16;
+        parameter.color = Color.WHITE;
+        parameter.borderWidth = 2;
+        parameter.borderColor = Color.BLACK;
+        parameter.characters = FreeTypeFontGenerator.DEFAULT_CHARS + "ščžŠČŽ";
+        labelFont = generator.generateFont(parameter);
+        generator.dispose();
+
+        labelBatch = new SpriteBatch();
     }
 
     public void rebuild() {
@@ -51,6 +73,11 @@ public class ColumnManager {
 
         // Ustvari ali posodobi stolpce
         for (ColumnVisual visual : visuals) {
+            // Apply minimum amount filter
+            if (Math.abs(visual.value) < minAmount) {
+                continue; // Skip columns below minimum amount
+            }
+
             String key = visual.getLocationId() + "_" + visual.userId + "_" + currentMode;
 
 
@@ -63,11 +90,12 @@ public class ColumnManager {
             float height = scaler.scale(visual.value);
 
             marker.updateVisualValue(visual.value);
-            marker.applyColor(isFamilyView());
+            marker.applyColor(currentUserId == null); // null = family view
             marker.setTargetHeight(height);
             marker.show();
         }
         applyNonOverlappingOffsets();
+        updateLocationLabels();
     }
 
     public void update(float delta) {
@@ -83,66 +111,218 @@ public class ColumnManager {
         }
     }
     private void applyNonOverlappingOffsets() {
-        java.util.Map<String, java.util.List<ColumnMarker>> positionGroups = new java.util.HashMap<>();
-        float threshold = 20.0f;
+        // Group markers by location identifier (not by coordinates!)
+        // This ensures each location forms its own group even if coordinates are identical
+        java.util.Map<String, java.util.List<ColumnMarker>> locationGroups = new java.util.HashMap<>();
 
-        // Group markers by quantized position
         for (ColumnMarker marker : columns.values()) {
-            Vector2 pos = marker.getPixelPosition();
-            String key = Math.round(pos.x / threshold) + "_" + Math.round(pos.y / threshold);
-            positionGroups.computeIfAbsent(key, k -> new java.util.ArrayList<>()).add(marker);
+            if (!marker.isVisible()) continue;
+            String locationId = marker.getVisual().getLocationId();
+            locationGroups.computeIfAbsent(locationId, k -> new java.util.ArrayList<>()).add(marker);
         }
 
-        // Assign offsets within each group
-        for (java.util.List<ColumnMarker> group : positionGroups.values()) {
-            int n = group.size();
-            if (isFamilyView() && n == 2) {
-                // Place side by side as 1x2 rectangle (share a full side)
-                float markerWidth = 20f; // Adjust to your actual marker width if needed
-                group.get(0).setRenderOffset(-markerWidth / 2f, 0);
-                group.get(1).setRenderOffset(markerWidth / 2f, 0);
-            } else if (n > 1) {
-                float radius = 15f;
-                for (int i = 0; i < n; i++) {
-                    double angle = 2 * Math.PI * i / n;
-                    float dx = (float) (radius * Math.cos(angle));
-                    float dy = (float) (radius * Math.sin(angle));
-                    group.get(i).setRenderOffset(dx, dy);
-                }
-            } else {
-                group.get(0).setRenderOffset(0, 0);
-            }
+        // First, reset all offsets and assign grid layout within each group
+        for (java.util.List<ColumnMarker> group : locationGroups.values()) {
+            assignGridOffsets(group);
         }
 
-        // Further separate groups that are still too close
-        java.util.List<Vector2> groupCenters = new java.util.ArrayList<>();
-        java.util.List<java.util.List<ColumnMarker>> groupList = new java.util.ArrayList<>(positionGroups.values());
-        for (java.util.List<ColumnMarker> group : groupList) {
-            Vector2 pos = group.get(0).getPixelPosition();
-            groupCenters.add(new Vector2(pos.x + group.get(0).offsetX, pos.y + group.get(0).offsetY));
+        // Then separate overlapping location groups
+        separateOverlappingGroups(locationGroups);
+    }
+
+    /**
+     * Updates location labels based on current column positions.
+     * One label per location, positioned above the tallest column in the group.
+     */
+    private void updateLocationLabels() {
+        locationLabels.clear();
+
+        // Group visible columns by location
+        java.util.Map<String, java.util.List<ColumnMarker>> locationGroups = new java.util.HashMap<>();
+        for (ColumnMarker marker : columns.values()) {
+            if (!marker.isVisible()) continue;
+            String locationId = marker.getVisual().getLocationId();
+            locationGroups.computeIfAbsent(locationId, k -> new java.util.ArrayList<>()).add(marker);
         }
-        float minGroupDist = 30f; // Minimum allowed distance between group centers
-        for (int i = 0; i < groupCenters.size(); i++) {
-            for (int j = i + 1; j < groupCenters.size(); j++) {
-                Vector2 a = groupCenters.get(i);
-                Vector2 b = groupCenters.get(j);
-                if (a.dst(b) < minGroupDist) {
-                    // Push groups apart
-                    Vector2 dir = new Vector2(b).sub(a).nor();
-                    if (dir.isZero()) dir.set(1, 0);
-                    dir.scl((minGroupDist - a.dst(b)) / 2f);
-                    for (ColumnMarker m : groupList.get(i)) {
-                        m.setRenderOffset(m.offsetX - dir.x, m.offsetY - dir.y);
+
+        // Create a label for each location group
+        for (java.util.Map.Entry<String, java.util.List<ColumnMarker>> entry : locationGroups.entrySet()) {
+            java.util.List<ColumnMarker> group = entry.getValue();
+            if (group.isEmpty()) continue;
+
+            // Get location name from first marker
+            String locationName = group.get(0).getVisual().getLocation().getIdentifier();
+
+            // Calculate center position and max height of the group
+            float sumX = 0, sumY = 0;
+            float maxHeight = 0;
+            for (ColumnMarker m : group) {
+                Vector2 pos = m.getPixelPosition();
+                sumX += pos.x + m.offsetX;
+                sumY += pos.y + m.offsetY;
+                maxHeight = Math.max(maxHeight, m.getTargetHeight());
+            }
+            float centerX = sumX / group.size();
+            float centerY = sumY / group.size();
+            float labelZ = maxHeight + LABEL_HEIGHT_OFFSET;
+
+            // Create label
+            LocationLabel label = new LocationLabel(locationName, centerX, centerY, labelZ, labelFont);
+            locationLabels.put(entry.getKey(), label);
+        }
+    }
+
+    /**
+     * Assigns grid offsets to markers in a group.
+     * Layout: 2 columns wide, rows grow as needed.
+     * Markers touch each other (GAP=0), centered around the location point.
+     */
+    private void assignGridOffsets(java.util.List<ColumnMarker> group) {
+        int n = group.size();
+        if (n == 0) return;
+
+        if (n == 1) {
+            // Single column - center it
+            group.get(0).setRenderOffset(0, 0);
+            return;
+        }
+
+        // Grid layout: 2 columns wide
+        int gridCols = 2;
+        int rows = (n + gridCols - 1) / gridCols;
+
+        // Calculate total grid size (actual columns used, not max)
+        int actualCols = Math.min(n, gridCols);
+        float totalWidth = actualCols * MARKER_SIZE;
+        float totalHeight = rows * MARKER_SIZE;
+
+        // Starting position (top-left of grid, offset so grid is centered)
+        float startX = -totalWidth / 2f + MARKER_SIZE / 2f;
+        float startY = totalHeight / 2f - MARKER_SIZE / 2f;
+
+        for (int i = 0; i < n; i++) {
+            int col = i % gridCols;
+            int row = i / gridCols;
+            float dx = startX + col * MARKER_SIZE;
+            float dy = startY - row * MARKER_SIZE;
+            group.get(i).setRenderOffset(dx, dy);
+        }
+    }
+
+    /**
+     * Separates groups of columns at different locations that overlap.
+     * Groups are pushed apart while trying to stay close to their original position.
+     */
+    private void separateOverlappingGroups(java.util.Map<String, java.util.List<ColumnMarker>> locationGroups) {
+        java.util.List<java.util.List<ColumnMarker>> groupList = new java.util.ArrayList<>(locationGroups.values());
+        if (groupList.size() < 2) return;
+
+        // Minimum gap between different location groups
+        float minGapBetweenGroups = 3f;
+        int maxIterations = 50;
+
+        for (int iter = 0; iter < maxIterations; iter++) {
+            boolean anyOverlap = false;
+
+            // Calculate current bounds for all groups
+            java.util.List<float[]> allBounds = new java.util.ArrayList<>();
+            for (java.util.List<ColumnMarker> group : groupList) {
+                allBounds.add(calculateGroupBounds(group));
+            }
+
+            // Check each pair of groups for overlap
+            for (int i = 0; i < groupList.size(); i++) {
+                for (int j = i + 1; j < groupList.size(); j++) {
+                    float[] boundsA = allBounds.get(i);
+                    float[] boundsB = allBounds.get(j);
+
+                    if (boundsOverlap(boundsA, boundsB, minGapBetweenGroups)) {
+                        anyOverlap = true;
+
+                        // Calculate current centers
+                        float cxA = (boundsA[0] + boundsA[2]) / 2f;
+                        float cyA = (boundsA[1] + boundsA[3]) / 2f;
+                        float cxB = (boundsB[0] + boundsB[2]) / 2f;
+                        float cyB = (boundsB[1] + boundsB[3]) / 2f;
+
+                        // Direction from A to B
+                        float dirX = cxB - cxA;
+                        float dirY = cyB - cyA;
+                        float len = (float) Math.sqrt(dirX * dirX + dirY * dirY);
+
+                        if (len < 0.001f) {
+                            // Groups are at exact same position - use spiral pattern based on index
+                            double angle = (i * 137.5) * Math.PI / 180.0; // golden angle for good distribution
+                            dirX = (float) Math.cos(angle);
+                            dirY = (float) Math.sin(angle);
+                            len = 1f;
+                        }
+
+                        // Normalize direction
+                        dirX /= len;
+                        dirY /= len;
+
+                        // Calculate how much they overlap
+                        float widthA = boundsA[2] - boundsA[0];
+                        float widthB = boundsB[2] - boundsB[0];
+                        float heightA = boundsA[3] - boundsA[1];
+                        float heightB = boundsB[3] - boundsB[1];
+
+                        float overlapX = (widthA / 2f + widthB / 2f + minGapBetweenGroups) - Math.abs(cxB - cxA);
+                        float overlapY = (heightA / 2f + heightB / 2f + minGapBetweenGroups) - Math.abs(cyB - cyA);
+
+                        // Push by the minimum overlap needed to separate
+                        float pushAmount = Math.max(1f, Math.min(overlapX, overlapY) / 2f + 0.5f);
+
+                        // Apply push to both groups (each moves half the distance)
+                        applyGroupOffset(groupList.get(i), -dirX * pushAmount, -dirY * pushAmount);
+                        applyGroupOffset(groupList.get(j), dirX * pushAmount, dirY * pushAmount);
                     }
-                    for (ColumnMarker m : groupList.get(j)) {
-                        m.setRenderOffset(m.offsetX + dir.x, m.offsetY + dir.y);
-                    }
-                    // Update group centers
-                    a.add(dir.scl(-1));
-                    b.add(dir);
                 }
             }
+
+            if (!anyOverlap) break;
         }
+    }
+
+    /**
+     * Apply additional offset to all markers in a group.
+     */
+    private void applyGroupOffset(java.util.List<ColumnMarker> group, float dx, float dy) {
+        for (ColumnMarker m : group) {
+            m.setRenderOffset(m.offsetX + dx, m.offsetY + dy);
+        }
+    }
+
+    /**
+     * Calculate the bounding box for a group of columns.
+     * Returns [minX, minY, maxX, maxY]
+     */
+    private float[] calculateGroupBounds(java.util.List<ColumnMarker> group) {
+        float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE;
+        float maxX = Float.MIN_VALUE, maxY = Float.MIN_VALUE;
+
+        float halfSize = MARKER_SIZE / 2f;
+
+        for (ColumnMarker m : group) {
+            Vector2 pos = m.getPixelPosition();
+            float x = pos.x + m.offsetX;
+            float y = pos.y + m.offsetY;
+            minX = Math.min(minX, x - halfSize);
+            minY = Math.min(minY, y - halfSize);
+            maxX = Math.max(maxX, x + halfSize);
+            maxY = Math.max(maxY, y + halfSize);
+        }
+
+        return new float[]{minX, minY, maxX, maxY};
+    }
+
+    /**
+     * Check if two bounding boxes overlap (with margin).
+     */
+    private boolean boundsOverlap(float[] a, float[] b, float margin) {
+        return !(a[2] + margin < b[0] || b[2] + margin < a[0] ||
+                 a[3] + margin < b[1] || b[3] + margin < a[1]);
     }
 
 
@@ -152,6 +332,20 @@ public class ColumnManager {
         }
     }
 
+    /**
+     * Renders location labels as billboard text (always facing camera).
+     * Call this after render() and after modelBatch.end().
+     */
+    public void renderLabels(Camera camera) {
+        if (locationLabels.isEmpty()) return;
+
+        labelBatch.begin();
+        for (LocationLabel label : locationLabels.values()) {
+            label.render(labelBatch, labelFont, camera);
+        }
+        labelBatch.end();
+    }
+
     public void setMode(ColumnMode mode) {
         this.currentMode = mode;
         rebuild();
@@ -159,6 +353,11 @@ public class ColumnManager {
 
     public void setUserId(String userId) {
         this.currentUserId = userId;
+        rebuild();
+    }
+
+    public void setMinAmount(float minAmount) {
+        this.minAmount = minAmount;
         rebuild();
     }
 
@@ -188,6 +387,13 @@ public class ColumnManager {
     }
     public void dispose() {
         columns.clear();
+        locationLabels.clear();
+        if (labelFont != null) {
+            labelFont.dispose();
+        }
+        if (labelBatch != null) {
+            labelBatch.dispose();
+        }
     }
     public void renderHitboxes(ShapeRenderer shapeRenderer) {
         for (ColumnMarker cm : columns.values()) {
@@ -212,12 +418,24 @@ public class ColumnManager {
         }
     }
     public ColumnMarker getHitColumn(Ray ray, Vector3 intersection) {
+        ColumnMarker best = null;
+        float bestDst2 = Float.POSITIVE_INFINITY;
+
+        Vector3 tmpIntersection = new Vector3();
+
         for (ColumnMarker cm : columns.values()) {
-            if (cm.intersectsRay(ray, intersection)) {
-                return cm;
+            if (cm.intersectsRay(ray, tmpIntersection)) {
+                float dst2 = ray.origin.dst2(tmpIntersection);
+                if (dst2 < bestDst2) {
+                    bestDst2 = dst2;
+                    best = cm;
+                    if (intersection != null) {
+                        intersection.set(tmpIntersection);
+                    }
+                }
             }
         }
-        return null;
+        return best;
     }
     public ColumnMarker getMarkerByLoc(Location loc) {
         for (ColumnMarker cm : columns.values()) {

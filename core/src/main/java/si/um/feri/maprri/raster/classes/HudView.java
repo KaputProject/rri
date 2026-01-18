@@ -6,14 +6,15 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
+import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Stage;
-import com.badlogic.gdx.scenes.scene2d.ui.Container;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle;
-import com.badlogic.gdx.scenes.scene2d.ui.Table;
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import si.um.feri.maprri.raster.actors.PieChartActor;
+import si.um.feri.maprri.raster.classes.graphics.ColumnMode;
 import si.um.feri.maprri.raster.classes.graphics.UserColorRegistry;
 import si.um.feri.maprri.raster.manager.DataManager;
 
@@ -34,6 +35,24 @@ public class HudView {
     Color inflowColor = new Color(0.3f, 0.8f, 0.3f, 1f); // green
     Color outflowColor = new Color(0.8f, 0.3f, 0.3f, 1f); // red
     List<Color> colors = new ArrayList<>();
+
+    // Filter panel
+    private Table filterTable;
+    private Container<Table> filterContainer;
+    private SelectBox<String> modeSelectBox;
+    private SelectBox<String> userSelectBox;
+    private SelectBox<String> minAmountSelectBox;
+    private FilterChangeListener filterChangeListener;
+    private ColumnMode currentMode = ColumnMode.COMBINED;
+    private String currentUserId = null;
+    private float currentMinAmount = 0f;
+
+    // Callback interface for filter changes
+    public interface FilterChangeListener {
+        void onModeChanged(ColumnMode mode);
+        void onUserChanged(String userId); // null = family view
+        void onMinAmountChanged(float minAmount);
+    }
     public HudView(DataManager dataManager) {
         this.dataManager = dataManager;
     }
@@ -54,6 +73,7 @@ public class HudView {
 
         showFamilyLabel();
         showControls();
+        showFilterPanel();
     }
 
     public Stage getStage() {
@@ -65,6 +85,21 @@ public class HudView {
         if (familyModeLabel != null) {
             familyModeLabel.setText("FAMILY MODE: " + (on ? "ON" : "OFF"));
         }
+        // Sync the user select box if it exists
+        if (userSelectBox != null) {
+            if (on) {
+                userSelectBox.setSelectedIndex(0); // Family view
+                currentUserId = null;
+            }
+        }
+    }
+
+    public ColumnMode getCurrentMode() {
+        return currentMode;
+    }
+
+    public String getCurrentUserId() {
+        return currentUserId;
     }
 
     public void showFamilyLabel() {
@@ -100,6 +135,177 @@ public class HudView {
         root.top().left().add(table);
 
         stage.addActor(root);
+    }
+
+    public void setFilterChangeListener(FilterChangeListener listener) {
+        this.filterChangeListener = listener;
+    }
+
+    public void showFilterPanel() {
+        if (filterContainer != null) {
+            filterContainer.remove();
+        }
+
+        filterTable = new Table();
+        TextureRegionDrawable grayBg = new TextureRegionDrawable(new Texture(pixmap));
+        filterTable.setBackground(grayBg);
+        filterTable.pad(10);
+
+        // Create skin for UI elements
+        Skin skin = createBasicSkin();
+
+        // Title
+        filterTable.add(new Label("Filters:", labelStyle)).left().padBottom(8).row();
+
+        // Mode filter
+        filterTable.add(new Label("Display Mode:", labelStyle)).left().padBottom(2).row();
+        modeSelectBox = new SelectBox<>(skin);
+        modeSelectBox.setItems("Combined", "Inflow Only", "Outflow Only");
+        modeSelectBox.setSelectedIndex(0);
+        modeSelectBox.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                int idx = modeSelectBox.getSelectedIndex();
+                ColumnMode mode;
+                if (idx == 0) mode = ColumnMode.COMBINED;
+                else if (idx == 1) mode = ColumnMode.INFLOW;
+                else mode = ColumnMode.OUTFLOW;
+                currentMode = mode;
+                if (filterChangeListener != null) {
+                    filterChangeListener.onModeChanged(mode);
+                }
+            }
+        });
+        filterTable.add(modeSelectBox).width(150).padBottom(8).row();
+
+        // User filter (for individual view)
+        filterTable.add(new Label("View User:", labelStyle)).left().padBottom(2).row();
+        userSelectBox = new SelectBox<>(skin);
+        updateUserSelectBox();
+        userSelectBox.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                int idx = userSelectBox.getSelectedIndex();
+                if (idx == 0) {
+                    // Family view
+                    currentUserId = null;
+                } else {
+                    // Individual user
+                    if (idx - 1 < dataManager.family.size()) {
+                        currentUserId = dataManager.family.get(idx - 1).getId();
+                    }
+                }
+                if (filterChangeListener != null) {
+                    filterChangeListener.onUserChanged(currentUserId);
+                }
+            }
+        });
+        filterTable.add(userSelectBox).width(150).padBottom(8).row();
+
+        // Minimum amount filter
+        filterTable.add(new Label("Min Amount:", labelStyle)).left().padBottom(2).row();
+        minAmountSelectBox = new SelectBox<>(skin);
+        minAmountSelectBox.setItems("All", "> 10", "> 50", "> 100", "> 500", "> 1000");
+        minAmountSelectBox.setSelectedIndex(0);
+        minAmountSelectBox.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                int idx = minAmountSelectBox.getSelectedIndex();
+                float minAmount;
+                switch (idx) {
+                    case 1: minAmount = 10f; break;
+                    case 2: minAmount = 50f; break;
+                    case 3: minAmount = 100f; break;
+                    case 4: minAmount = 500f; break;
+                    case 5: minAmount = 1000f; break;
+                    default: minAmount = 0f; break;
+                }
+                currentMinAmount = minAmount;
+                if (filterChangeListener != null) {
+                    filterChangeListener.onMinAmountChanged(minAmount);
+                }
+            }
+        });
+        filterTable.add(minAmountSelectBox).width(150).row();
+
+        // Position below controls (top-left)
+        filterContainer = new Container<>(filterTable);
+        filterContainer.top().left().padTop(280).padLeft(10); // Below controls panel
+        filterContainer.setFillParent(true);
+
+        stage.addActor(filterContainer);
+    }
+
+    private void updateUserSelectBox() {
+        if (userSelectBox == null) return;
+
+        java.util.List<String> items = new java.util.ArrayList<>();
+        items.add("All (Family)");
+        for (Person p : dataManager.family) {
+            String name = p.getName();
+            if (name == null || name.isEmpty()) {
+                name = p.getId().substring(0, Math.min(8, p.getId().length()));
+            }
+            items.add(name);
+        }
+        userSelectBox.setItems(items.toArray(new String[0]));
+    }
+
+    private Skin createBasicSkin() {
+        Skin skin = new Skin();
+
+        // Create font
+        skin.add("default-font", font);
+
+        // Create colors
+        Pixmap selectBg = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        selectBg.setColor(0.3f, 0.3f, 0.3f, 1f);
+        selectBg.fill();
+        skin.add("select-bg", new Texture(selectBg));
+        selectBg.dispose();
+
+        Pixmap listBg = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        listBg.setColor(0.25f, 0.25f, 0.25f, 1f);
+        listBg.fill();
+        skin.add("list-bg", new Texture(listBg));
+        listBg.dispose();
+
+        Pixmap selectionBg = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        selectionBg.setColor(0.4f, 0.6f, 0.8f, 1f);
+        selectionBg.fill();
+        skin.add("selection-bg", new Texture(selectionBg));
+        selectionBg.dispose();
+
+        // Label style
+        Label.LabelStyle lblStyle = new Label.LabelStyle();
+        lblStyle.font = font;
+        lblStyle.fontColor = Color.WHITE;
+        skin.add("default", lblStyle);
+
+        // List style (use full class name to avoid conflict with java.util.List)
+        com.badlogic.gdx.scenes.scene2d.ui.List.ListStyle listStyle =
+            new com.badlogic.gdx.scenes.scene2d.ui.List.ListStyle();
+        listStyle.font = font;
+        listStyle.fontColorSelected = Color.WHITE;
+        listStyle.fontColorUnselected = Color.LIGHT_GRAY;
+        listStyle.selection = new TextureRegionDrawable(skin.get("selection-bg", Texture.class));
+        listStyle.background = new TextureRegionDrawable(skin.get("list-bg", Texture.class));
+        skin.add("default", listStyle);
+
+        // ScrollPane style
+        ScrollPane.ScrollPaneStyle scrollStyle = new ScrollPane.ScrollPaneStyle();
+        skin.add("default", scrollStyle);
+
+        // SelectBox style
+        SelectBox.SelectBoxStyle selectStyle = new SelectBox.SelectBoxStyle();
+        selectStyle.font = font;
+        selectStyle.fontColor = Color.WHITE;
+        selectStyle.background = new TextureRegionDrawable(skin.get("select-bg", Texture.class));
+        selectStyle.listStyle = listStyle;
+        selectStyle.scrollStyle = scrollStyle;
+        skin.add("default", selectStyle);
+
+        return skin;
     }
 
 
@@ -159,7 +365,7 @@ public class HudView {
         }
 
         detailsContainer = new Container<>(detailsTable);
-        detailsContainer.top().right().pad(10);
+        detailsContainer.top().right().padTop(50).padRight(10); // Top-right corner
         detailsContainer.setFillParent(true);
 
         stage.addActor(detailsContainer);
@@ -220,7 +426,7 @@ public class HudView {
             detailsTable.add(outflowPie).center().padBottom(10).row();
         }
         detailsContainer = new Container<>(detailsTable);
-        detailsContainer.top().right().pad(10);
+        detailsContainer.top().right().padTop(50).padRight(10); // Top-right corner
         detailsContainer.setFillParent(true);
 
         stage.addActor(detailsContainer);

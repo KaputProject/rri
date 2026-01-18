@@ -50,9 +50,9 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
     private DataManager dataManager;
     private ColumnManager columnManager;
     private LocationScheduler locationScheduler;
-    private float maxHeight = 200f;
+    private float maxHeight = 300f;
     private ShapeRenderer shapeRenderer;
-    private static boolean familyView = false;
+    private static boolean familyView = true; // Default to family view (matches ColumnManager.currentUserId=null)
 
     private final Geolocation MARKER_GEOLOCATION = new Geolocation(46.559070, 15.638100);
 
@@ -91,6 +91,28 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         modelBatch = new ModelBatch();
         hudView = new HudView(dataManager);
         hudView.create();
+        hudView.setFamilyMode(familyView); // Sync HUD label with initial familyView state
+
+        // Register filter change listener
+        hudView.setFilterChangeListener(new HudView.FilterChangeListener() {
+            @Override
+            public void onModeChanged(ColumnMode mode) {
+                columnManager.setMode(mode);
+            }
+
+            @Override
+            public void onUserChanged(String userId) {
+                familyView = (userId == null);
+                hudView.setFamilyMode(familyView);
+                columnManager.setUserId(userId);
+            }
+
+            @Override
+            public void onMinAmountChanged(float minAmount) {
+                columnManager.setMinAmount(minAmount);
+            }
+        });
+
         InputMultiplexer multiplexer = new InputMultiplexer();
         multiplexer.addProcessor(hudView.getStage());
         multiplexer.addProcessor(new GestureDetector(this));
@@ -118,6 +140,8 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
     }
 
     private void draw() {
+        // Sky-blue background
+        Gdx.gl.glClearColor(0.53f, 0.81f, 0.92f, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
 
         modelBatch.begin(perspectiveCamera);
@@ -132,6 +156,10 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         columnManager.render(modelBatch, environment);
 
         modelBatch.end();
+
+        // Render location labels as billboard text (after 3D rendering)
+        columnManager.renderLabels(perspectiveCamera);
+
         shapeRenderer.setProjectionMatrix(perspectiveCamera.combined);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
         if (debugMode){
