@@ -5,6 +5,7 @@ import jdk.internal.net.http.common.Pair;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -26,15 +27,14 @@ public class Location {
         this.address = address;
         this.lat = lat;
         this.lng = lng;
-        this.users = users == null ? List.of() : List.copyOf(users);
-    }
+        this.users = users == null ? new ArrayList<>() : new ArrayList<>(users);    }
     public Location(String id, String identifier, String address, double lat, double lng, List<LocationUser> users, double total_inflow, double total_outflow, int numberOfTrans) {
         this.id = Objects.requireNonNull(id, "id");
         this.identifier = Objects.requireNonNull(identifier, "identifier");
         this.address = address;
         this.lat = lat;
         this.lng = lng;
-        this.users = users == null ? List.of() : List.copyOf(users);
+        this.users = users == null ? new ArrayList<>() : new ArrayList<>(users);
         this.total_inflow = total_inflow;
         this.total_outflow = total_outflow;
         this.numberOfTrans = numberOfTrans;
@@ -52,6 +52,55 @@ public class Location {
 
     public double getLng() { return lng; }
 
+    public double getTotal_inflow() {
+        return total_inflow;
+    }
+
+    public double getTotal_outflow() {
+        return total_outflow;
+    }
+
+    public int getNumberOfTrans() {
+        return numberOfTrans;
+    }
+
+    public void addTransactionToLocation(Location location) {
+        // Assume only one user per transaction location
+        LocationUser txUser = location.users.get(0);
+        LocationUser myUser = getUser(txUser.getId());
+        if (myUser != null) {
+            myUser.addUserTransaction(txUser);
+        } else {
+            users.add(new LocationUser(
+                txUser.getId(),
+                txUser.getUsername(),
+                txUser.getNumbOftrans(),
+                txUser.getInflow(),
+                txUser.getOutflow()
+            ));
+        }
+        this.total_inflow += txUser.getInflow();
+        this.total_outflow += txUser.getOutflow();
+        this.numberOfTrans += 1;
+    }
+
+    public LocationUser getUser(String userId) {
+        if (userId == null) return null;
+        for (LocationUser u : users) {
+            if (userId.equals(u.getId()) || userId.equalsIgnoreCase(u.getUsername())) {
+                return u;
+            }
+        }
+        return null;
+    }
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Location)) return false;
+        Location that = (Location) o;
+        return id.equals(that.id);
+    }
+
     public List<LocationUser> getUsers() {
         return Collections.unmodifiableList(users);
     }
@@ -66,6 +115,10 @@ public class Location {
             if (idOrUsername.equals(u.getId()) || idOrUsername.equalsIgnoreCase(u.getUsername())) return true;
         }
         return false;
+    }
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
     }
 
     public Pair<Double, Double> getCoordinates() {

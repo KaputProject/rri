@@ -1,10 +1,10 @@
 package si.um.feri.maprri.raster.classes;
 
-public class FamilyMember {
+public class Person {
     private final String id;
     private final String name;
 
-    public FamilyMember(String id, String name) {
+    public Person(String id, String name) {
         this.id = id;
         this.name = name;
     }
