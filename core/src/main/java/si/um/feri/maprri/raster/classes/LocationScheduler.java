@@ -21,23 +21,24 @@ public class LocationScheduler  {
 
 
     public void updateTransactions(Transactions transactions) {
+        if (transactions == null) {
+            System.out.println("No transactions of type 'simulate' found.");
+            return;
+        }
         if (transactionQueue == null) {
             transactionQueue = new ArrayList<>();
         }
-
-        // dodaj vse nove transakcije
         for (SimulatedTransaction transaction : transactions.getTransactions()) {
             if (!transactionQueue.contains(transaction)) {
                 transactionQueue.add(transaction);
             }
         }
-
-        // sortiraj po času: od največjega do najmanjšega
         transactionQueue.sort(
             Comparator.comparingLong(SimulatedTransaction::getDatetime).reversed()
         );
         System.out.println("Sorted transactions" + transactionQueue.toString());
     }
+
 
     /**
      * Vrne zadnjo transakcijo (naslednjo na vrsti) in jo odstrani iz seznama.

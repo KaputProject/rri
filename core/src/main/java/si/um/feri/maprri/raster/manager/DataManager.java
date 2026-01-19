@@ -48,7 +48,8 @@ public class DataManager {
                     }
                     JSONObject member = familyMembers.getJSONObject(i);
                     String memberId = member.getString("_id");
-                    String memberName = member.optString("name", "");
+                    // Use "username" field from JSON (not "name")
+                    String memberName = member.optString("username", member.optString("name", ""));
                     family.add(new Person(memberId, memberName));
                 }
                 JSONArray Locations = data.getJSONArray("statistics");
