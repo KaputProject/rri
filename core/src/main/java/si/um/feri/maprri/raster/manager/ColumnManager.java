@@ -13,6 +13,7 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.BoundingBox;
 import com.badlogic.gdx.math.collision.Ray;
+import si.um.feri.maprri.raster.RasterMap;
 import si.um.feri.maprri.raster.classes.Location;
 import si.um.feri.maprri.raster.classes.Map;
 import si.um.feri.maprri.raster.classes.graphics.*;

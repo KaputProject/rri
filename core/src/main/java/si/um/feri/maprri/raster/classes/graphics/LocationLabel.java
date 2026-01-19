@@ -6,6 +6,7 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Vector3;
+import si.um.feri.maprri.raster.RasterMap;
 
 /**
  * A billboard text label that always faces the camera.
@@ -44,6 +45,9 @@ public class LocationLabel {
      * @param camera The camera to billboard towards
      */
     public void render(SpriteBatch batch, BitmapFont font, Camera camera) {
+        if(!RasterMap.isShowMarkerLabels()){
+            return;
+        }
         // Project world position to screen coordinates
         Vector3 screenPos = camera.project(new Vector3(worldPosition));
 

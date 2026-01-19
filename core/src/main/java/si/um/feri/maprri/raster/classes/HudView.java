@@ -123,7 +123,7 @@ public class HudView {
 
         table.pad(10);
 
-        String[] lines = {"Controls:", "W / S / A / D  - Move map", "Q / E            - Zoom in/out", "Arrow keys      - Pitch / Yaw", "Mouse drag       - Rotate camera", "Pinch / Scroll  - Zoom", "Tap                 - Select / interact", "R        - Debug mode", "I    - Inverse mouse controls (x axis)", "F   - Show Whole family data",};
+        String[] lines = {"Controls:", "W / S / A / D  - Move map", "Q / E            - Zoom in/out", "Arrow keys      - Pitch / Yaw", "Mouse drag       - Rotate camera", "Tap                 - Select / interact", "R        - Debug mode", "I    - Inverse mouse controls (x axis)", "F   - Show Whole family data",};
 
         for (String line : lines) {
             Label label = new Label(line, labelStyle);

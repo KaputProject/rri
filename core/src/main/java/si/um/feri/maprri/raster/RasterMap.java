@@ -53,8 +53,10 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
     private float maxHeight = 300f;
     private ShapeRenderer shapeRenderer;
     private static boolean familyView = true; // Default to family view (matches ColumnManager.currentUserId=null)
+    private static boolean showMarkerLabels = true;
 
     private final Geolocation MARKER_GEOLOCATION = new Geolocation(46.559070, 15.638100);
+
 
     @Override
     public void create() {
@@ -65,8 +67,8 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         httpUtil = new HttpUtil();
         dataManager = new DataManager();
         // TODO: Tule je demonstracija povezave, lahk si prilagodita se dodatne funkcije al pa backend ce je ka treba, js se ne vem ker pac vidva bota pol vidla kake podatke rabita
-        //dataManager.loadBaseData(HttpUtil.getBaseLocationData(),HttpUtil.getFamilyId());
-        dataManager.loadBaseData(testData.toString(), "685160a14f2c91b527966287");
+        dataManager.loadBaseData(HttpUtil.getBaseLocationData(),HttpUtil.getFamilyId());
+        //dataManager.loadBaseData(testData.toString(), "685160a14f2c91b527966287");
 
 
         environment = new Environment();
@@ -119,8 +121,8 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         Gdx.input.setInputProcessor(multiplexer);
 
         shapeRenderer = new ShapeRenderer();
-        dataManager.extractTransactionsFromSimulateJson(familyData);
-        locationScheduler.updateTransactions(dataManager.getTransactionsByType("simulate"));
+        //dataManager.extractTransactionsFromSimulateJson(familyData);
+        //locationScheduler.updateTransactions(dataManager.getTransactionsByType("simulate"));
         initMqttListeners();
     }
 
@@ -296,7 +298,9 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
             hudView.setFamilyMode(familyView);
             updateColumnFilter();
         }
-
+        if (Gdx.input.isKeyJustPressed(Input.Keys.L)) {
+            showMarkerLabels = !showMarkerLabels;
+        }
         if (Gdx.input.isKeyPressed(Input.Keys.E)) {
             cameraPosition.z += Config.CAMERA_Z_SPEED * delta;
         }
@@ -365,5 +369,13 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
     public void onSimulationUpdate() {
         columnManager.onDataUpdated();
     }
+    public static boolean isShowMarkerLabels() {
+        return showMarkerLabels;
+    }
+
+    public static void setShowMarkerLabels(boolean showMarkerLabels) {
+        RasterMap.showMarkerLabels = showMarkerLabels;
+    }
+
 
 }
