@@ -123,7 +123,18 @@ public class HudView {
 
         table.pad(10);
 
-        String[] lines = {"Controls:", "W / S / A / D  - Move map", "Q / E            - Zoom in/out", "Arrow keys      - Pitch / Yaw", "Mouse drag       - Rotate camera", "Tap                 - Select / interact", "R        - Debug mode", "I    - Inverse mouse controls (x axis)", "F   - Show Whole family data",};
+        String[] lines = {
+            "Controls:",
+            "W / S / A / D  - Move map",
+            "Q / E            - Zoom in/out",
+            "Arrow keys      - Pitch / Yaw",
+            "Mouse drag       - Rotate camera",
+            "Tap                 - Select / interact",
+            "R        - Debug mode",
+            "I    - Inverse mouse controls (x axis)",
+            "F   - Show Whole family data",
+            "L   - Toggle location labels",
+        };
 
         for (String line : lines) {
             Label label = new Label(line, labelStyle);
@@ -132,7 +143,8 @@ public class HudView {
 
         Table root = new Table();
         root.setFillParent(true);
-        root.top().left().add(table);
+        // Move controls down to avoid overlapping with the top banner (approx 40-50px height)
+        root.top().left().add(table).padTop(50).padLeft(10);
 
         stage.addActor(root);
     }
@@ -191,8 +203,11 @@ public class HudView {
                     currentUserId = null;
                 } else {
                     // Individual user
-                    if (idx - 1 < dataManager.family.size()) {
-                        currentUserId = dataManager.family.get(idx - 1).getId();
+                    int userIdx = idx - 1;
+                    if (userIdx >= 0 && userIdx < dataManager.family.size()) {
+                        currentUserId = dataManager.family.get(userIdx).getId();
+                    } else {
+                        currentUserId = null;
                     }
                 }
                 if (filterChangeListener != null) {
@@ -230,7 +245,7 @@ public class HudView {
 
         // Position below controls (top-left)
         filterContainer = new Container<>(filterTable);
-        filterContainer.top().left().padTop(280).padLeft(10); // Below controls panel
+        filterContainer.top().left().padTop(345).padLeft(10);
         filterContainer.setFillParent(true);
 
         stage.addActor(filterContainer);
@@ -243,12 +258,22 @@ public class HudView {
         items.add("All (Family)");
         for (Person p : dataManager.family) {
             String name = p.getName();
-            if (name == null || name.isEmpty()) {
-                name = p.getId().substring(0, Math.min(8, p.getId().length()));
+            if (name == null || name.trim().isEmpty()) {
+                // Fallback, but do NOT show full id in UI by default.
+                String id = p.getId();
+                name = (id == null) ? "Unknown" : id.substring(0, Math.min(8, id.length()));
             }
             items.add(name);
         }
+
+        int prevSelected = userSelectBox.getSelectedIndex();
         userSelectBox.setItems(items.toArray(new String[0]));
+        // Keep selection if possible
+        if (prevSelected >= 0 && prevSelected < items.size()) {
+            userSelectBox.setSelectedIndex(prevSelected);
+        } else {
+            userSelectBox.setSelectedIndex(0);
+        }
     }
 
     private Skin createBasicSkin() {

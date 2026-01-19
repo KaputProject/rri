@@ -68,7 +68,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         dataManager = new DataManager();
         // TODO: Tule je demonstracija povezave, lahk si prilagodita se dodatne funkcije al pa backend ce je ka treba, js se ne vem ker pac vidva bota pol vidla kake podatke rabita
         dataManager.loadBaseData(HttpUtil.getBaseLocationData(),HttpUtil.getFamilyId());
-        //dataManager.loadBaseData(testData.toString(), "685160a14f2c91b527966287");
+        dataManager.loadBaseData(testData.toString(), "685160a14f2c91b527966287");
 
 
         environment = new Environment();
