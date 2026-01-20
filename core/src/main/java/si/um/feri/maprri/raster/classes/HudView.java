@@ -349,7 +349,7 @@ public class HudView {
         detailsTable.pad(10);
 
         // Header
-        detailsTable.add(new Label("details", labelStyle)).center().padBottom(6).row();
+        detailsTable.add(new Label("Details", labelStyle)).center().padBottom(6).row();
         detailsTable.add(new Label("Location: " + location.getIdentifier(), labelStyle)).left().row();
         detailsTable.add(new Label("Address: " + location.getAddress(), labelStyle)).left().padBottom(8).row();
 

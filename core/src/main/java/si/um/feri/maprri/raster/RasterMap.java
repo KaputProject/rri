@@ -68,7 +68,7 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
         dataManager = new DataManager();
         // TODO: Tule je demonstracija povezave, lahk si prilagodita se dodatne funkcije al pa backend ce je ka treba, js se ne vem ker pac vidva bota pol vidla kake podatke rabita
         dataManager.loadBaseData(HttpUtil.getBaseLocationData(),HttpUtil.getFamilyId());
-        dataManager.loadBaseData(testData.toString(), "685160a14f2c91b527966287");
+        //dataManager.loadBaseData(testData.toString(), "685160a14f2c91b527966287");
 
 
         environment = new Environment();
@@ -333,6 +333,8 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
             mqttUtil.client.subscribe("kaput/event", (topic, msg) -> {
                 String message = new String(msg.getPayload());
                 System.out.println("Received MQTT message on topic " + topic + ": " + message);
+                dataManager.extractTransactionsFromSimulateJson(message);
+                locationScheduler.updateTransactions(dataManager.getTransactionsByType("simulate"));
             });
 
             mqttUtil.client.subscribe("kaput/simulate", (topic, msg) -> {
@@ -341,6 +343,8 @@ public class RasterMap extends ApplicationAdapter implements GestureDetector.Ges
                 dataManager.extractTransactionsFromSimulateJson(message);
                 locationScheduler.updateTransactions(dataManager.getTransactionsByType("simulate"));
             });
+
+
 
 
         } catch (Exception e) {
